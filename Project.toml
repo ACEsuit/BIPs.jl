@@ -1,10 +1,9 @@
 name = "BIPs"
 uuid = "76fa5280-f995-49fd-9918-e917225eb296"
-authors = ["Jose M Munoz <munozariasjm@gmail.com>", 
-           "Christoph Ortner <christophortner0@gmail.com>"]
+authors = ["Jose M Munoz <munozariasjm@gmail.com>", "Christoph Ortner <christophortner0@gmail.com>"]
 version = "0.1.0"
 
-[deps] 
+[deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 EvalMetrics = "251d5f9e-10c1-4699-ba24-e0ad168fa3e4"
@@ -32,6 +31,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
+MultivariateStats = "0.9"
 julia = "1.7"
 
 [extras]
