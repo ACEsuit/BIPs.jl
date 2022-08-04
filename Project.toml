@@ -1,7 +1,7 @@
 name = "BIPs"
 uuid = "76fa5280-f995-49fd-9918-e917225eb296"
 authors = ["Jose M Munoz <munozariasjm@gmail.com>", "Christoph Ortner <christophortner0@gmail.com>"]
-version = "0.1.0"
+version = "0.0.1"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
