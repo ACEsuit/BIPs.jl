@@ -42,11 +42,19 @@ function transform2hyp!(tjet, jet::Vector{<:SVector}; ϵ=1e-10)
     return tjet
 end
 
-transform2hyp(jet::Vector{<:SVector}; ϵ=1e-10) =
+transform2hyp(jet::Vector{<:SVector}; ϵ=1e-4) =
     transform2hyp!(Vector{SVector{5,Float64}}(undef, length(jet)),
         jet; ϵ=ϵ)
 
-export transform2hyp
+function data2hyp(dataset_jets)
+    storage = Vector{SVector}[]
+    for i = eachindex(dataset_jets)
+        push!(storage, transform2hyp(dataset_jets[i]))
+    end
+    storage
+end
+
+export transform2hyp, data2hyp
 
 
 end

@@ -331,7 +331,7 @@ gensparse(; NU::Integer=nothing,
     filter=_ -> true,
     INT=Int,
     ordered=false) =
-    _gensparse(Val(NU), tup2b, admissiblse, filter, INT, ordered,
+    _gensparse(Val(NU), tup2b, admissible, filter, INT, ordered,
         SVector(minvv...), SVector(maxvv...))
 
 
