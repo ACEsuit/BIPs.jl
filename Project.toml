@@ -32,6 +32,14 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
 SimpleChains = "0.2"
+OffsetArrays = "1"
+YAML = "0.4"
+JSON = "0.21"
+MLJ = "0.18"
+Reexport = "1"
+ScikitLearn = "0.6"
+H5Zbzip2 = "0.1"
+BenchmarkTools = "1"
 julia = "1.7"
 
 [extras]
