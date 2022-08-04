@@ -7,4 +7,17 @@
 This is the official implementation of the *Boost Invariant Polynomial (BIP) for Efficient Jet Tagging* proposed [here](https://arxiv.org/abs/2207.08272).
 
 ## Installation
- ... 
+
+`BIPs.jl` is registered in the `MolSim` registry, which can be installed from the Julia REPL, package manager mode `]` via 
+``` 
+registry add https://github.com/JuliaMolSim/MolSim.git
+```
+Then the package can be installed by simply call (still in the package manager)
+``` 
+add BIPs
+```
+
+## Documentation 
+
+... 
+
