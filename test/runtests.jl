@@ -1,12 +1,12 @@
-using Test
-import Pkg;
-Pkg.activate(".");
-using BIPs
-include("./inv_test.jl")
-include("./safety_test.jl")
+using Test, BIPs
+
+include("inv_test.jl")
+include("safety_test.jl")
+
 using .InvarianceTester, .PhysicsSafetyTester
 
-sample_data_path = "./storage/sample.h5"
+sample_data_path =  "./storage/sample.h5"
+sample_data_path = joinpath(BIPs.artifact("bips_test"), "toptagging_sample.h5")
 sample_jets, sample_labels = BIPs.read_data("TQ", sample_data_path)
 sample_hyp_jets = data2hyp(sample_jets)
 

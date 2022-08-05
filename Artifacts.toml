@@ -1,0 +1,8 @@
+
+[bips_test]
+git-tree-sha1 = "ad0b83eac89abe555c3c23ed1ec536a4c7ddc886"
+lazy = true
+
+    [[bips_test.download]]
+    sha256 = "29ff0e2b7f6b7317d22ff2ac2f0d08f7781006e02605448ab3a9a9742317d6fe"
+    url = "https://github.com/ACEsuit/ACEData/blob/master/trainingsets/bips_tests.tar.gz?raw=true"

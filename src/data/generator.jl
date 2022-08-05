@@ -1,6 +1,6 @@
 
 module DatasetGenerator
-using Pkg
+
 include("./reader.jl")
 include("./transforms.jl")
 using Statistics, LinearAlgebra, StaticArrays

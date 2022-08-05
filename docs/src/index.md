@@ -4,7 +4,7 @@ CurrentModule = BIPs
 
 # BIPs
 
-Documentation for [BIPs](https://github.com/cortner/BIPs.jl).
+Documentation for [BIPs](https://github.com/ACEsuit/BIPs.jl).
 
 ```@index
 ```

@@ -10,4 +10,8 @@ include("modules/polynomials.jl")
 include("data/generator.jl")
 @reexport using .DatasetGenerator
 
+# a little hack to load BIPs artifacts from anywhere? 
+using LazyArtifacts
+artifact(str) = (@artifact_str str)
+
 end
