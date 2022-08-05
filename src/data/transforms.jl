@@ -35,7 +35,7 @@ function transform2hyp!(tjet, jet::Vector{<:SVector}; ϵ=1e-10)
 
     # Normalization
     Vec_tjet = reinterpret(Float64, tjet)
-    sum_ = sum(x[5] for x in tjet)
+    sum_ = sum(x[1] for x in tjet)
     for i in 1:5:length(Vec_tjet)
         @inbounds Vec_tjet[i] /= (sum_ + ϵ)
     end

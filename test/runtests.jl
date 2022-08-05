@@ -1,4 +1,6 @@
 using Test
+import Pkg; Pkg.activate(".")
+using BIPs
 include("./inv_test.jl")
 include("./safety_test.jl")
 using .InvarianceTester, .PhysicsSafetyTester

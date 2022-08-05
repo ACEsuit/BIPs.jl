@@ -1,6 +1,6 @@
 module InvarianceTester
 using BIPs
-using Statistics
+using Statistics, StaticArrays, Random
 
 f_bip, specs = build_ip(order=3,
     levels=5,
@@ -10,14 +10,14 @@ f_bip, specs = build_ip(order=3,
 
 function bip_data(dataset_jets)
     storage = zeros(length(dataset_jets), length(specs))
-    for i = 1:eachindex(dataset_jets)
+    for i = 1:length(dataset_jets)
         storage[i, :] = f_bip(dataset_jets[i])
     end
     storage
 end
 
 function boost_invariance_test(hyp_jets)
-
+    n_limit = 1_000
     function boostJet(jet; β=rand())
         boosted_jet = []
         for particle in jet
@@ -43,11 +43,12 @@ end
 
 
 function permutation_invariance_test(hyp_jets)
+    n_limit = 1_000
     function permute(jet)
         modified_jet = shuffle(jet)
         modified_jet
     end
-    permuted_jets = [permuted(jet) for jet in hyp_jets]
+    permuted_jets = [permute(jet) for jet in hyp_jets]
     difference_in_data = all(~any(hyp_jets .== permuted_jets))
 
     emb_jets = bip_data(hyp_jets)

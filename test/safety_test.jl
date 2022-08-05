@@ -1,6 +1,6 @@
 module PhysicsSafetyTester
 using BIPs
-using Statistics
+using Statistics, StaticArrays, Random
 
 f_bip, specs = build_ip(order=3,
     levels=5,
@@ -10,20 +10,23 @@ f_bip, specs = build_ip(order=3,
 
 function bip_data(dataset_jets)
     storage = zeros(length(dataset_jets), length(specs))
-    for i = 1:eachindex(dataset_jets)
+    for i = 1:length(dataset_jets)
         storage[i, :] = f_bip(dataset_jets[i])
     end
     storage
 end
 
 function ir_safety_test(hyp_jets)
+    n_limit = 1_000
     function add_ir(jet; δ=1e-15)
         modified_jet = copy(jet)
         θ = rand() * 2 * pi
+        ϕ = rand() * pi
         E = δ
-        r = rand()
-        pL = E^2 - r^2
-        tM = (E^2 - pL^2)^0.5
+        pp = E * rand()
+        r = pp * sin(ϕ)
+        pL = pp * cos(ϕ)
+        tM = (E^2 - pL^2 + 1)^0.5
         ϵ = 0.01
         y = log((E + pL + ϵ) / (E - pL + ϵ))
         particle = @SVector [r, cos(θ), sin(θ), y, tM]
@@ -32,6 +35,7 @@ function ir_safety_test(hyp_jets)
     end
     ir_added_jets = [add_ir(jet) for jet in hyp_jets]
     difference_in_data = all(~any(hyp_jets .== ir_added_jets))
+    @show difference_in_data
 
     emb_jets = bip_data(hyp_jets)
     ir_added_emb_jets = bip_data(ir_added_jets)
@@ -42,13 +46,14 @@ end
 
 
 function collinear_safety_test(hyp_jets)
+    n_limit = 1_000
     function add_collinear(jet; δ=1e-15)
         modified_jet = copy(jet)
         θ = rand() * 2 * pi
         r = rand() * δ
         E = rand()
         pL = E * (1 - δ)
-        tM = (E^2 - pL^2)^0.5
+        tM = (E^2 - pL^2 + 1)^0.5
         ϵ = 0.01
         y = log((E + pL + ϵ) / (E - pL + ϵ))
         particle = @SVector [r, cos(θ), sin(θ), y, tM]
