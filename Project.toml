@@ -4,6 +4,7 @@ authors = ["Jose M Munoz <munozariasjm@gmail.com>", "Christoph Ortner <christoph
 version = "0.0.1"
 
 [deps]
+ArtifactUtils = "8b73e784-e7d8-4ea5-973d-377fed4e3bce"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 EvalMetrics = "251d5f9e-10c1-4699-ba24-e0ad168fa3e4"

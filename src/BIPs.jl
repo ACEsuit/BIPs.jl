@@ -10,6 +10,4 @@ include("modules/polynomials.jl")
 include("data/generator.jl")
 @reexport using .DatasetGenerator
 
-artifact(str) = (@artifact_str str)
-
 end
