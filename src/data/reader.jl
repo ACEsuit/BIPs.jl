@@ -32,15 +32,5 @@ function read_TQ(filepath::String; n_limit::Int=-1)
     _get_data(table_data["table"], n_limit)
 end
 
-"""Read a TopQuark file in the dessired_path"""
-function read_QG(filepath::String; n_limit::Int=-1)
-    fid = h5open(filepath, "r")
-    table_data = read(fid, "table")
-    close(fid)
-    if n_limit == -1
-        n_limit = length(table_data["table"])
-    end
-    _get_data(table_data["table"], n_limit; n_particles=30)
-end
-export read_TQ, read_QC
+export read_TQ
 end
