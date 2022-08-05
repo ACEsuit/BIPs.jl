@@ -1,5 +1,6 @@
 using Test
-import Pkg; Pkg.activate(".")
+import Pkg;
+Pkg.activate(".");
 using BIPs
 include("./inv_test.jl")
 include("./safety_test.jl")
@@ -15,5 +16,4 @@ sample_hyp_jets = data2hyp(sample_jets)
 
     @test ir_safety_test(sample_hyp_jets)
     @test collinear_safety_test(sample_hyp_jets)
-end
 end

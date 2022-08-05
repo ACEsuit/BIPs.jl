@@ -26,7 +26,7 @@ function ir_safety_test(hyp_jets)
         pp = E * rand()
         r = pp * sin(ϕ)
         pL = pp * cos(ϕ)
-        tM = (E^2 - pL^2 + 1)^0.5
+        tM = log((E^2 - pL^2 + 1)^0.5)
         ϵ = 0.01
         y = log((E + pL + ϵ) / (E - pL + ϵ))
         particle = @SVector [r, cos(θ), sin(θ), y, tM]
@@ -53,7 +53,7 @@ function collinear_safety_test(hyp_jets)
         r = rand() * δ
         E = rand()
         pL = E * (1 - δ)
-        tM = (E^2 - pL^2 + 1)^0.5
+        tM = log((E^2 - pL^2 + 1)^0.5)
         ϵ = 0.01
         y = log((E + pL + ϵ) / (E - pL + ϵ))
         particle = @SVector [r, cos(θ), sin(θ), y, tM]
