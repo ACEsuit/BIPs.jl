@@ -1,4 +1,6 @@
 
+using BIPs
+
 sample_data_path = joinpath(BIPs.artifact("bips_test"), "toptagging_sample.h5")
 sample_jets, sample_labels = BIPs.read_data("TQ", sample_data_path)
 sample_hyp_jets = BIPs.data2hyp(sample_jets)

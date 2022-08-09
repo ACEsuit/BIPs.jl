@@ -1,6 +1,8 @@
 
 using BIPs, Statistics, StaticArrays, Random
 
+include("testing_tools.jl")
+
 f_bip, specs = build_ip(order=3,
     levels=5,
     n_pt=4,
