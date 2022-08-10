@@ -14,7 +14,7 @@ momentum embedding. Default to n_pt = 3
 * `n_phi`: Number of terms in the basis for the Rappidity basis. Default to n_phi = 3
 """
 @fastmath function build_ip(; order::Integer=3, levels::Integer=6,
-   n_pt::Integer=5, n_th::Integer=3, n_y::Integer=3
+   n_pt::Integer=5, n_th::Integer=2, n_y::Integer=3
 )
    Rk = ChebBasis{:r}(n_pt)     # Define the basis Rk(r) for the transverse momentum
    Tl = TrigBasisNA(n_th)       # Tl(θ) is the basis for the polar angle

@@ -39,7 +39,7 @@ Base.eachindex(basis::TrigBasis) = -basis.maxL:basis.maxL
 # ------------- Evaluating the basis in an specific angle
 function (basis::TrigBasis)(θ)
     maxL = basis.maxL
-    T = ComplexF64[exp(im * l * θ) for l = -maxL:maxL]
+    T = ComplexF64[exp(- l * θ) for l = -maxL:maxL]
     return OffsetArray(T, -maxL:maxL)
 end
 
