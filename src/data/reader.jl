@@ -6,8 +6,8 @@ function _get_data(hdf_table, n_limit; n_particles=200)::Tuple{Vector,Vector}
     labels = []
     for jet = 1:n_limit
         jet_vals = SVector{4,Float64}[]
-        @inbounds for (i, particle) = enumerate(1:4:4*n_particles-4)
-            p = SVector{4}(hdf_table[jet].values_block_0[particle:particle+4])
+        for (i, particle) = enumerate(1:4:4*n_particles)
+            p = SVector{4}(hdf_table[jet].values_block_0[particle:particle+3])
             if p[1] > 0.0
                 push!(jet_vals, p)
             end
