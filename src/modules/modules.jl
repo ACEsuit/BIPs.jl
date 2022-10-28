@@ -7,14 +7,14 @@ using StaticArrays, OffsetArrays
 ###################################################
 
 struct ASpec
-    k::Int  # r 
+    k::Int  # r
     l::Int  # θ
-    n::Int  # v 
+    n::Int  # v
 end
 
 struct ABasis{TR,TT,TV}
     bR::TR # r basis - k
-    bT::TT # θ basis - l 
+    bT::TT # θ basis - l
     bV::TV # y basis - n
     spec::Vector{ASpec}
 end
@@ -141,7 +141,7 @@ end
 
 function _addinto!(A::Vector, basis::ABasis, x)
     # x = SVector(r, cosθ, sinθ, y, tM)
-    @inbounds Rk = basis.bR(x[1])
+    @inbounds Rk = basis.bR((log(x[1]) + 4.7) / 6)
     @inbounds Tl = basis.bT(x[2], x[3])
     @inbounds Vn = basis.bV(x[4])
     @inbounds Um = x[end]
@@ -159,7 +159,7 @@ function (basis::ABasis)(X)
     return A
 end
 
-# -------------- Product Basis 
+# -------------- Product Basis
 
 @fastmath function (basis::AABasis)(X)
     A = basis.Abasis(X)
@@ -173,7 +173,7 @@ end
 Base.length(basis::AABasis) = size(basis.spec, 2)
 
 
-# -------------- Basis generation 
+# -------------- Basis generation
 struct BasisSelector
     order::Int
     weights::Dict{Symbol,Float64}

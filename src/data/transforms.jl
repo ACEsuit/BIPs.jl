@@ -24,22 +24,20 @@ function transform2hyp!(tjet, jet::Vector{<:SVector}; ϵ=1e-10)
         p = SVector(Ep[2], Ep[3], Ep[4]) # Cartesian Momentum in the lab frame
         xyz = p - 2 * dot(p, v) * v # Projection
         z = xyz[3] # Parallel momentum in jet axis
-        tM = log((E^2 - z^2 + 1)^0.5)
+        tM = log(E^2 - z^2 + 1)
         y = 0.5 * log((E + z + ϵ) / (E - z + ϵ)) # Rapidity
         r = sqrt(xyz[1]^2 + xyz[2]^2) + ϵ # Transverse momentum
         cosθ, sinθ = xyz[1] / r, xyz[2] / r # Angle in arbitrary plane
         return SVector(r, cosθ, sinθ, y, tM) # Return the transformed particle
     end
-
     for i = 1:length(jet)
         @inbounds tjet[i] = transform(jet[i], v)
     end
-
-    # Normalization
+    sum_pt = sum(x[1] for x in tjet)
+    # this is a little hack to make the SVectors writable
     Vec_tjet = reinterpret(Float64, tjet)
-    sum_ = sum(x[1] for x in tjet)
     for i in 1:5:length(Vec_tjet)
-        @inbounds Vec_tjet[i] /= (sum_ + ϵ)
+        @inbounds Vec_tjet[i] /= sum_pt
     end
     return tjet
 end
