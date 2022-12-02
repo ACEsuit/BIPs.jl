@@ -31,5 +31,5 @@ Deep Learning approaches are becoming the go-to methods for data analysis in Hig
 --- 
 ## Authors
 👤 **Christoph Ortner**,  (UBC University) <br>
-👤 **Ilyes Batatia**, (University of Cmabridge)<br>
+👤 **Ilyes Batatia**, (University of Cambridge)<br>
 👤 **Jose M Munoz**, (Mitacs Intern)<br>
