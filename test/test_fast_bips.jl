@@ -79,6 +79,14 @@ module X
       return ACEcore.evaluate(bipf.bA, (R, T, V)) * x[end] 
    end
 
+
+   function (bipf::FastBIPf)(X)
+   # todo - continue here!       
+      A = eval_A(bipf, x)
+      AA = ACEcore.evaluate(bipf.bAA, A)
+      return [x[1], AA...]
+   end
+
 end
 
 ##
@@ -125,3 +133,14 @@ A2 = hcat( [f_bip.Abasis( [x,] ) for x in X1]... )
 
 norm(A1 - A2, Inf)
 
+## check the AA basis 
+
+AA_spec = f_bip.spec
+AA_ords = f_bip.ords
+
+spec = [ [AA_spec[i, k] for i = 1:AA_ords[k]] for k in 2:size(AA_spec, 2) ]
+spec = sort.(spec)
+bAA = ACEcore.SparseSymmProd(spec; T = ComplexF64)
+AA1 = ACEcore.evaluate(bAA, A1[:,1])
+AA2 = f_bip([X1[1],])
+AA1 ≈ AA2[2:end]

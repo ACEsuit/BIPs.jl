@@ -10,6 +10,10 @@ include("modules/polynomials.jl")
 include("data/generator.jl")
 @reexport using .DatasetGenerator
 
+# the new lux and ACEcore based implementation 
+
+include("lux.jl")
+
 # a little hack to load BIPs artifacts from anywhere? 
 using LazyArtifacts
 artifact(str) = (@artifact_str str)
