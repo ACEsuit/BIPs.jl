@@ -1,4 +1,5 @@
-using BIPs, Statistics, StaticArrays, Random, Test
+using BIPs, Statistics, StaticArrays, Random, Test, ACEcore, 
+      Polynomials4ML, LinearAlgebra
 
 include("testing_tools.jl")
 hyp_jets = sample_hyp_jets
@@ -29,6 +30,15 @@ module X
       return ia 
    end
 
+   function idx_map(basis)
+      a = natural_indices(basis)
+      ia = Dict{eltype(a), Int}() 
+      for ai in a
+         ia[ai] = Polynomials4ML.index(basis, ai)
+      end
+      return ia 
+   end
+
    convert_1pbasis(bR::ChebBasis) = chebyshev_basis(bR.maxn+1)
    convert_1pbasis(bR::TrigBasis) = CTrigBasis(bR.maxL)
    convert_1pbasis(bR::TrigBasisNA) = CTrigBasis(bR.maxL)
@@ -37,9 +47,9 @@ module X
       bR = convert_1pbasis(Abasis.bR)
       bT = convert_1pbasis(Abasis.bT)
       bV = convert_1pbasis(Abasis.bV)
-      iR = inv_map(natural_indices(bR))
-      iT = inv_map(natural_indices(bT))
-      iV = inv_map(natural_indices(bV))
+      iR = idx_map(bR)
+      iT = idx_map(bT)
+      iV = idx_map(bV)
       spec = [ (iR[b.k], iT[b.l], iV[b.n]) for b in Abasis.spec ]
       return spec, (bR, bT, bV)
    end
@@ -52,14 +62,16 @@ module X
 
 
    function eval_A(bipf::FastBIPf, x)
-      r = x[1] 
+      r = (log(x[1]) + 4.7) / 6 # x[1] 
       cθ = x[2]
       sθ = x[3] 
       y = x[4]
       R = bipf.bR(r)
+      R *= 1.25331410190992
+      R[1] *= 1.4142135823485564
       T = bipf.bT(atan(sθ, cθ))
       V = bipf.bV(y)
-      return ACEcore.evaluate(bipf.bA, (R, T, V))
+      return ACEcore.evaluate(bipf.bA, (R, T, V)) * x[end] 
    end
 
 end
@@ -84,25 +96,28 @@ f_bip_fast = X.FastBIPf(f_bip)
 
 r = rand() 
 R1 = f_bip_fast.bR(r)
+R1 *= 1.25331410190992; R1[1] *= 1.4142135823485564
 R2 = f_bip.Abasis.bR(r)
-display(collect(R2) ./ R1)
+@show R1 ≈ collect(R2)
 
 θ = rand(); sθ, cθ = sincos(θ)
-T1 = f_bip_fast.bT(θ)
+T1 = f_bip_fast.bT(atan(sθ, cθ))
 T2 = f_bip.Abasis.bT(cθ, sθ)
-collect(T2) ≈ T1[[5, 3, 1, 2, 4]]
+inds = natural_indices(f_bip_fast.bT)
+IT = X.idx_map(f_bip_fast.bT)
+all(T2[k] ≈ T1[IT[k]] for k in inds)
 
 y = rand()
 V1 = f_bip_fast.bV(y)
 V2 = f_bip.Abasis.bV(y)
-collect(V2) ≈ V1[[5, 3, 1, 2, 4]]
+inds = natural_indices(f_bip_fast.bV)
+IV = X.idx_map(f_bip_fast.bV)
+all(V2[k] ≈ V1[IV[k]] for k in inds)
 
 ## check the A basis now 
 
 A1 = hcat( [X.eval_A(f_bip_fast, x) for x in X1]... )
-A2 = hcat( [f_bip.Abasis( [X1[1]] ) for x in X1]... )
+A2 = hcat( [f_bip.Abasis( [x,] ) for x in X1]... )
 
-s = A2[:, 1] ./ A1[:, 1]
-A1 = A1 .* s
+norm(A1 - A2, Inf)
 
-A1 ≈ A2
