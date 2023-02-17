@@ -23,3 +23,25 @@ for X in hyp_jets[1:100]
    print_tf(@test norm((AA1 - AA2) ./ abs.(AA2), Inf) < 0.1)
    print_tf(@test norm(AA1 - AA2, Inf) / norm(AA2, Inf) < 1e-4)
 end
+
+##
+
+using  BenchmarkTools, ObjectPools
+X = identity.(hyp_jets[1])
+
+@btime $f_bip($X)
+@btime (B = $f_bip_lux($X); release!(B))
+
+
+##
+
+@profview let X = X, f_bip_lux = f_bip_lux
+   for _ = 1:1_000_000 
+      f_bip_lux(X)
+   end
+end
+
+##
+
+@code_warntype f_bip_lux(X)
+

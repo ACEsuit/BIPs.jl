@@ -5,8 +5,9 @@ using Polynomials4ML, ACEcore, StaticArrays
 using ACEcore: PooledSparseProduct, SparseSymmProd
 using Polynomials4ML: natural_indices
 using BIPs.BiPolynomials.Modules: TrigBasis, TrigBasisNA, ChebBasis
-
-
+using LinearAlgebra: Diagonal, mul!
+using ObjectPools
+using ObjectPools: acquire!, release!
 
 
 struct BIPbasis{TR, TT, TV} 
@@ -15,6 +16,9 @@ struct BIPbasis{TR, TT, TV}
    bV::TV # y basis - n
    bA::PooledSparseProduct{3}
    bAA::SparseSymmProd{ComplexF64}
+   # ---------------- Temporaries
+   AAc::ArrayCache{ComplexF64, 1}
+   AA::ArrayCache{Float64, 1}
 end
 
 # ---------- Conversion from old BIPs 
@@ -57,6 +61,7 @@ function convert_AA_spec(f_bip)
    AA_ords = f_bip.ords
    spec = [ [AA_spec[i, k] for i = 1:AA_ords[k]] for k in 2:size(AA_spec, 2) ]
    spec = sort.(spec)
+   spec = [ [spec[1],]; spec ]  # duplicate the first feature; this is a [hack] explained below 
    return ACEcore.SparseSymmProd(spec; T = ComplexF64)
 end
 
@@ -64,8 +69,9 @@ function BIPbasis(f_bip_old)
    spec_A, (bR, bT, bV) = convert_A_spec(f_bip_old.Abasis)
    bA = PooledSparseProduct{3}(spec_A)
    bAA = convert_AA_spec(f_bip_old)
-   @show typeof(bAA)
-   return BIPbasis(bR, bT, bV, bA, bAA)
+   return BIPbasis(bR, bT, bV, bA, bAA, 
+                   ArrayCache(ComplexF64, 1), 
+                   ArrayCache(Float64, 1) )
 end
 
 
@@ -88,14 +94,43 @@ end
 
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
-   A = zeros(ComplexF64, length(bipf.bA))
-   for x in X
-      _addinto!(A, bipf, x)
+   # A = zeros(ComplexF64, length(bipf.bA))
+   # for x in X
+   #    _addinto!(A, bipf, x)
+   # end
+
+   r = [ (log(x[1]) + 4.7) / 6 for x in X ] 
+   θ = [ atan(x[3], x[2]) for x in X ]
+   y = [ x[4] for x in X ]
+   tM = [ x[5] for x in X ]
+
+   R = Polynomials4ML.evaluate(bipf.bR, r) 
+   mul!(R, Diagonal(tM), R)
+
+   T = bipf.bT(θ)
+   V = bipf.bV(y)
+
+   A = ACEcore.evalpool(bipf.bA, (R, T, V))
+
+   Polynomials4ML.release!(R)
+   Polynomials4ML.release!(T)
+   Polynomials4ML.release!(V)
+
+   # this circumvents a performance bug in ACEcore 
+   AAc = acquire!(bipf.AAc, length(bipf.bAA.dag))
+   ACEcore.evaluate!(parent(AAc), bipf.bAA.dag, A)
+   AA = acquire!(bipf.AA, length(bipf.bAA)) 
+   AA_ = parent(AA)
+   AA_[1] = 1  # [hack] 
+   @inbounds @simd for i = 2:length(bipf.bAA)
+      AA_[i] = real(AAc[bipf.bAA.proj[i]])
    end
-   AA_ = ACEcore.evaluate(bipf.bAA, A)
-   AA = zeros(Float64, length(AA_) + 1)
-   AA[2:end] .= real.(AA_)
-   AA[1] = 1
+   # AA = [ real(AAc[ bipf.bAA.proj[i] ]) for i = 1:length(bipf.bAA) ]
+   # AA[1] = 1    # [hack] 
+
+   ACEcore.release!(A)
+   ACEcore.release!(AAc)   
+
    return AA
 end
 
