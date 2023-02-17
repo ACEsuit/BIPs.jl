@@ -39,7 +39,14 @@ module X
       return ia 
    end
 
-   convert_1pbasis(bR::ChebBasis) = chebyshev_basis(bR.maxn+1)
+   function convert_1pbasis(bR::ChebBasis) 
+      Bnew = chebyshev_basis(bR.maxn+1)
+      Bnew.A[1:2] .= 1.0 
+      Bnew.A[3:end] .= 2 
+      Bnew.B[:] .= 0.0 
+      Bnew.C[:] .= -1.0 
+      return Bnew 
+   end
    convert_1pbasis(bR::TrigBasis) = CTrigBasis(bR.maxL)
    convert_1pbasis(bR::TrigBasisNA) = CTrigBasis(bR.maxL)
 
@@ -67,8 +74,6 @@ module X
       sθ = x[3] 
       y = x[4]
       R = bipf.bR(r)
-      R *= 1.25331410190992
-      R[1] *= 1.4142135823485564
       T = bipf.bT(atan(sθ, cθ))
       V = bipf.bV(y)
       return ACEcore.evaluate(bipf.bA, (R, T, V)) * x[end] 
@@ -96,7 +101,6 @@ f_bip_fast = X.FastBIPf(f_bip)
 
 r = rand() 
 R1 = f_bip_fast.bR(r)
-R1 *= 1.25331410190992; R1[1] *= 1.4142135823485564
 R2 = f_bip.Abasis.bR(r)
 @show R1 ≈ collect(R2)
 
