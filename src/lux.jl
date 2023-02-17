@@ -94,10 +94,6 @@ end
 
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
-   # A = zeros(ComplexF64, length(bipf.bA))
-   # for x in X
-   #    _addinto!(A, bipf, x)
-   # end
 
    r = [ (log(x[1]) + 4.7) / 6 for x in X ] 
    θ = [ atan(x[3], x[2]) for x in X ]
@@ -121,12 +117,10 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
    ACEcore.evaluate!(parent(AAc), bipf.bAA.dag, A)
    AA = acquire!(bipf.AA, length(bipf.bAA)) 
    AA_ = parent(AA)
-   AA_[1] = 1  # [hack] 
+   AA_[1] = 1  # [hack]  ACEcore doesn't allow the constant basis function :(
    @inbounds @simd for i = 2:length(bipf.bAA)
       AA_[i] = real(AAc[bipf.bAA.proj[i]])
    end
-   # AA = [ real(AAc[ bipf.bAA.proj[i] ]) for i = 1:length(bipf.bAA) ]
-   # AA[1] = 1    # [hack] 
 
    ACEcore.release!(A)
    ACEcore.release!(AAc)   

@@ -30,7 +30,7 @@ using  BenchmarkTools, ObjectPools
 X = identity.(hyp_jets[1])
 
 @btime $f_bip($X)
-@btime (B = $f_bip_lux($X); release!(B))
+@btime (B = $f_bip_lux($X); release!(B); nothing)
 
 
 ##
