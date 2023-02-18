@@ -7,6 +7,7 @@ using Polynomials4ML: natural_indices
 using BIPs.BiPolynomials.Modules: TrigBasis, TrigBasisNA, ChebBasis
 using LinearAlgebra: Diagonal, mul!
 using Random: AbstractRNG
+import Zygote
 
 using LuxCore 
 import LuxCore: initialparameters, initialstates, 
@@ -109,6 +110,8 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
 end
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
+   Zygote.ignore() do
+   # ---- begine Zygote ignore 
    r = st.r 
    θ = st.θ
    y = st.y
@@ -153,7 +156,7 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::Nam
    @inbounds @simd ivdep for i = 2:length(bipf.bAA)
       AA[i] = real(AAc[bipf.bAA.proj[i]])
    end
-
+   # ---- end Zygote ignore 
    return AA, st 
 end
 
