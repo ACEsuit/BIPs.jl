@@ -110,7 +110,7 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
 end
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
-   Zygote.ignore() do
+   AA = Zygote.ignore() do
    # ---- begine Zygote ignore 
    r = st.r 
    θ = st.θ
@@ -157,6 +157,8 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::Nam
       AA[i] = real(AAc[bipf.bAA.proj[i]])
    end
    # ---- end Zygote ignore 
+   AA
+   end 
    return AA, st 
 end
 

@@ -43,7 +43,7 @@ ps, st = LuxCore.setup(rng, f_bip_lux)
 using Lux 
 
 model = Chain(; bip = f_bip_lux, 
-                l1 = Dense(length(f_bip_lux), 10), 
+                l1 = Dense(length(f_bip_lux), 10, tanh), 
                 l2 = Dense(10, 10, tanh), 
                 l3 = Dense(10, 1) )
 
@@ -53,27 +53,62 @@ ps, st = Lux.setup(rng, model)
 
 model(X, ps, st)[1][1] 
 
-@btime $model($X, $ps, $st)
+# @btime $model($X, $ps, $st)
+
 
 ##
+
+using Lux, Optimisers, Zygote
+
+# standard Lux differentation uses Zygote and more or less goes like this: 
 
 data = [ identity.(hyp_jets[i]) for i = 1:100 ]
 
 function loss(model, ps, st, data)
-    return sum( model(X, ps, st)[1][1]^2 for X in data )
+   L = [ model(X, ps, st)[1][1] for X in data ]
+   return sum(L.^2), st, () 
 end
 
 loss(model, ps, st, data)
 
-# standard Lux differentation uses Zygote and more or less goes like this: 
-# but somehow this doesn't seem to be working? 
-using Zygote 
-Zygote.gradient(ps -> loss(model, ps, st, data))
+opt = Optimisers.ADAM(0.001)
+train_state = Lux.Training.TrainState(rng, model, opt)
+vjp = Lux.Training.ZygoteVJP()
 
-# Enzyme should works much faster though ... 
-using Enzyme 
-# allocate gradient (Enzyme wants everything non-allocating!)
-gs = Lux.fmap(zero, ps)
-Enzyme.autodiff(Reverse, loss, Const(model), 
-                Duplicated(ps, gs), Const(st), Const(data))
-println(gs)
+gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
+
+# the timing is not great but bearable.
+@time gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
+
+# via the same kind of mechanism one can now use the Lux training machinery
+#   http://lux.csail.mit.edu/stable/examples/generated/beginner/PolynomialFitting/main/
+
+
+## ------------- Enzyme Tests ----------------
+
+# # Unfortunately I can't get the Enzyme differentiation to work. 
+# # ... no idea what the problem is?!?
+# # ... I suspect if we write out own layers we will be ok?!
+
+# using Enzyme 
+
+# function loss1(model, ps, st, data)
+#    L = 0.0  
+#    for X in data
+#       L += model(X, ps, st)[1][1]^2
+#    end
+#    return L
+# end
+
+# loss1(model, ps, st, data)
+
+# # Enzyme should works much faster though ... 
+# #  ... but something isn't working at all here. 
+# # allocate gradient (Enzyme wants everything non-allocating!)
+# gs = Lux.fmap(zero, ps)
+# Enzyme.autodiff(Reverse, loss, Const(model), 
+#                 Duplicated(ps, gs), Const(st), Const(data))
+# println(gs)
+
+##
+
