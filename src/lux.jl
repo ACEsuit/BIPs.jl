@@ -109,9 +109,8 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
    return bipf(X, ps, st)[1]
 end
 
-function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
-   AA = Zygote.ignore() do
-   # ---- begine Zygote ignore 
+# function barrier 
+function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, st::NamedTuple)
    r = st.r 
    θ = st.θ
    y = st.y
@@ -156,12 +155,15 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::Nam
    @inbounds @simd ivdep for i = 2:length(bipf.bAA)
       AA[i] = real(AAc[bipf.bAA.proj[i]])
    end
-   # ---- end Zygote ignore 
-   AA
-   end 
-   return AA, st 
+
+   return AA 
 end
 
-
+function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
+   AA = Zygote.ignore() do
+      _eval!(bipf, X, st)
+   end
+   return AA, st 
+end
 
 end

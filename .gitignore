@@ -4,3 +4,4 @@
 foo.ipynb
 foo/*
 foo
+*.code-workspace
