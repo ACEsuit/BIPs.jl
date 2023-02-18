@@ -6,8 +6,6 @@ using ACEcore: PooledSparseProduct, SparseSymmProd
 using Polynomials4ML: natural_indices
 using BIPs.BiPolynomials.Modules: TrigBasis, TrigBasisNA, ChebBasis
 using LinearAlgebra: Diagonal, mul!
-using ObjectPools
-using ObjectPools: acquire!, release!
 
 using LuxCore 
 import LuxCore: initialparameters, initialstates, 
@@ -27,7 +25,11 @@ end
 
 # ---------- parameter and state management
 
+Base.length(bip::BIPbasis) = length(bip.bAA)
+
 initialparameters(::BIPbasis) = NamedTuple()
+
+initialstates(rng::Main.AbstractRNG, bip::BIPbasis) = initialstates(bip)
 
 initialstates(bip::BIPbasis{T}) where {T} = (
          r = Vector{T}(undef, bip.maxlen), 
@@ -87,11 +89,11 @@ function convert_AA_spec(f_bip)
    return ACEcore.SparseSymmProd(spec; T = ComplexF64)
 end
 
-function BIPbasis(f_bip_old)
+function BIPbasis(f_bip_old; maxlen = 200)
    spec_A, (bR, bT, bV) = convert_A_spec(f_bip_old.Abasis)
    bA = PooledSparseProduct{3}(spec_A)
    bAA = convert_AA_spec(f_bip_old)
-   return BIPbasis(bR, bT, bV, bA, bAA, 200)
+   return BIPbasis(bR, bT, bV, bA, bAA, maxlen)
 end
 
 

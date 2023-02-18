@@ -26,26 +26,31 @@ end
 
 ##
 
-using  BenchmarkTools, ObjectPools, LuxCore
+using  BenchmarkTools, LuxCore
 X = identity.(hyp_jets[1])
 
 @btime $f_bip($X)
 @btime $f_bip_lux($X)
 
-ps = LuxCore.initialparameters(f_bip_lux)
-st = LuxCore.initialstates(f_bip_lux)
+rng = MersenneTwister(1234)
+ps, st = LuxCore.setup(rng, f_bip_lux)
+# = LuxCore.initialparameters(f_bip_lux)
+# st = LuxCore.initialstates(f_bip_lux)
 @btime $f_bip_lux($X, $ps, $st)
 
 
-# ##
+## 
 
-# @profview let X = X, f_bip_lux = f_bip_lux
-#    for _ = 1:1_000_000 
-#       f_bip_lux(X)
-#    end
-# end
+using Lux 
 
-# ##
+model = Chain(; bip = f_bip_lux, 
+                l1 = Dense(length(f_bip_lux), 10), 
+                l2 = Dense(10, 10, tanh), 
+                l3 = Dense(10, 1) )
 
-# @code_warntype f_bip_lux(X)
+rng = MersenneTwister(1234)
+ps, st = Lux.setup(rng, model)              
 
+model(X, ps, st)[1] 
+
+@btime $model($X, $ps, $st)
