@@ -6,6 +6,7 @@ using ACEcore: PooledSparseProduct, SparseSymmProd
 using Polynomials4ML: natural_indices
 using BIPs.BiPolynomials.Modules: TrigBasis, TrigBasisNA, ChebBasis
 using LinearAlgebra: Diagonal, mul!
+using Random: AbstractRNG
 
 using LuxCore 
 import LuxCore: initialparameters, initialstates, 
@@ -29,7 +30,7 @@ Base.length(bip::BIPbasis) = length(bip.bAA)
 
 initialparameters(::BIPbasis) = NamedTuple()
 
-initialstates(rng::Main.AbstractRNG, bip::BIPbasis) = initialstates(bip)
+initialstates(rng::AbstractRNG, bip::BIPbasis) = initialstates(bip)
 
 initialstates(bip::BIPbasis{T}) where {T} = (
          r = Vector{T}(undef, bip.maxlen), 
