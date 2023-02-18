@@ -26,22 +26,26 @@ end
 
 ##
 
-using  BenchmarkTools, ObjectPools
+using  BenchmarkTools, ObjectPools, LuxCore
 X = identity.(hyp_jets[1])
 
 @btime $f_bip($X)
-@btime (B = $f_bip_lux($X); release!(B); nothing)
+@btime $f_bip_lux($X)
+
+ps = LuxCore.initialparameters(f_bip_lux)
+st = LuxCore.initialstates(f_bip_lux)
+@btime $f_bip_lux($X, $ps, $st)
 
 
-##
+# ##
 
-@profview let X = X, f_bip_lux = f_bip_lux
-   for _ = 1:1_000_000 
-      f_bip_lux(X)
-   end
-end
+# @profview let X = X, f_bip_lux = f_bip_lux
+#    for _ = 1:1_000_000 
+#       f_bip_lux(X)
+#    end
+# end
 
-##
+# ##
 
-@code_warntype f_bip_lux(X)
+# @code_warntype f_bip_lux(X)
 

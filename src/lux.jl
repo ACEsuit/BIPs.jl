@@ -9,17 +9,39 @@ using LinearAlgebra: Diagonal, mul!
 using ObjectPools
 using ObjectPools: acquire!, release!
 
+using LuxCore 
+import LuxCore: initialparameters, initialstates, 
+                  AbstractExplicitLayer
 
-struct BIPbasis{TR, TT, TV} 
+# for now assume that bR, bT, bV, bA, bAA are not layers, i.e. they
+# can't have parameters. 
+
+struct BIPbasis{T, TR, TT, TV} <: AbstractExplicitLayer
    bR::TR # r basis - k
    bT::TT # θ basis - l
    bV::TV # y basis - n
    bA::PooledSparseProduct{3}
-   bAA::SparseSymmProd{ComplexF64}
-   # ---------------- Temporaries
-   AAc::ArrayCache{ComplexF64, 1}
-   AA::ArrayCache{Float64, 1}
+   bAA::SparseSymmProd{Complex{T}}
+   maxlen::Int 
 end
+
+# ---------- parameter and state management
+
+initialparameters(::BIPbasis) = NamedTuple()
+
+initialstates(bip::BIPbasis{T}) where {T} = (
+         r = Vector{T}(undef, bip.maxlen), 
+         θ = Vector{T}(undef, bip.maxlen),
+         y = Vector{T}(undef, bip.maxlen),
+         tM = Vector{T}(undef, bip.maxlen),
+         R = Matrix{T}(undef, bip.maxlen, length(bip.bR)),
+         T = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bT)),
+         V = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bV)),
+         A = Vector{Complex{T}}(undef, length(bip.bA)),
+         AA = Vector{T}(undef, length(bip.bAA)),
+         AAc = Vector{Complex{T}}(undef, length(bip.bAA.dag)),
+      )
+
 
 # ---------- Conversion from old BIPs 
 
@@ -69,63 +91,67 @@ function BIPbasis(f_bip_old)
    spec_A, (bR, bT, bV) = convert_A_spec(f_bip_old.Abasis)
    bA = PooledSparseProduct{3}(spec_A)
    bAA = convert_AA_spec(f_bip_old)
-   return BIPbasis(bR, bT, bV, bA, bAA, 
-                   ArrayCache(ComplexF64, 1), 
-                   ArrayCache(Float64, 1) )
+   return BIPbasis(bR, bT, bV, bA, bAA, 200)
 end
 
 
-# ---------- memory management code 
 
 
 # ---------- evaluation code 
 
-
-function _addinto!(A, bipf::BIPbasis, x)
-   r = (log(x[1]) + 4.7) / 6 # x[1] 
-   cθ = x[2]
-   sθ = x[3] 
-   y = x[4]
-   R = bipf.bR(r) * x[end] 
-   T = bipf.bT(atan(sθ, cθ))
-   V = bipf.bV(y)
-   A[:] .= A[:] .+ ACEcore.evaluate(bipf.bA, (R, T, V))
+function (bipf::BIPbasis)(X::AbstractVector{<: SVector}) 
+   ps = initialparameters(bipf)
+   st = initialstates(bipf)
+   return bipf(X, ps, st)[1]
 end
 
+function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
+   r = st.r 
+   θ = st.θ
+   y = st.y
+   tM = st.tM
+   R = st.R
+   T = st.T
+   V = st.V
+   A = st.A
+   AA = st.AA
+   AAc = st.AAc
 
-function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
-
-   r = [ (log(x[1]) + 4.7) / 6 for x in X ] 
-   θ = [ atan(x[3], x[2]) for x in X ]
-   y = [ x[4] for x in X ]
-   tM = [ x[5] for x in X ]
-
-   R = Polynomials4ML.evaluate(bipf.bR, r) 
-   mul!(R, Diagonal(tM), R)
-
-   T = bipf.bT(θ)
-   V = bipf.bV(y)
-
-   A = ACEcore.evalpool(bipf.bA, (R, T, V))
-
-   Polynomials4ML.release!(R)
-   Polynomials4ML.release!(T)
-   Polynomials4ML.release!(V)
-
-   # this circumvents a performance bug in ACEcore 
-   AAc = acquire!(bipf.AAc, length(bipf.bAA.dag))
-   ACEcore.evaluate!(parent(AAc), bipf.bAA.dag, A)
-   AA = acquire!(bipf.AA, length(bipf.bAA)) 
-   AA_ = parent(AA)
-   AA_[1] = 1  # [hack]  ACEcore doesn't allow the constant basis function :(
-   @inbounds @simd for i = 2:length(bipf.bAA)
-      AA_[i] = real(AAc[bipf.bAA.proj[i]])
+   nX = length(X)
+   if bipf.maxlen < nX 
+      error("BIPbasis: $nX = nX > maxlen = $(bip.maxlen)")
    end
 
-   ACEcore.release!(A)
-   ACEcore.release!(AAc)   
+   @inbounds @simd for i = 1:nX
+      x = X[i] 
+      r[i] = (log(x[1]) + 4.7) / 6
+      θ[i] = atan(x[3], x[2])
+      y[i] = x[4]
+      tM[i] = x[5]
+   end
 
-   return AA
+   Polynomials4ML.evaluate!(R, bipf.bR, (@view r[1:nX]))
+   Polynomials4ML.evaluate!(T, bipf.bT, (@view θ[1:nX]))
+   Polynomials4ML.evaluate!(V, bipf.bV, (@view y[1:nX]))
+
+   # rescale with transverse momentum 
+   @inbounds for j = 1:size(R, 2)
+      @simd ivdep for i = 1:nX
+         R[i, j] *= tM[i]
+      end
+   end
+
+   # this is the bottleneck!!! 
+   ACEcore.evalpool!(A, bipf.bA, (R, T, V), nX)
+
+   # this circumvents a performance bug in ACEcore 
+   ACEcore.evaluate!(AAc, bipf.bAA.dag, A)
+   AA[1] = 1  # [hack]  ACEcore doesn't allow the constant basis function :(
+   @inbounds @simd ivdep for i = 2:length(bipf.bAA)
+      AA[i] = real(AAc[bipf.bAA.proj[i]])
+   end
+
+   return AA, st 
 end
 
 
