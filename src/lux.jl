@@ -11,12 +11,39 @@ import Zygote
 
 using LuxCore 
 import LuxCore: initialparameters, initialstates, 
-                  AbstractExplicitLayer
+                  AbstractExplicitLayer, 
+                  AbstractExplicitContainerLayer
 
-# for now assume that bR, bT, bV, bA, bAA are not layers, i.e. they
-# can't have parameters. 
+# ----------- a simple embedding interface 
+#             so that We can give make learnable embeddings 
 
-struct BIPbasis{T, TR, TT, TV} <: AbstractExplicitLayer
+struct GenericEmbedding{TB} <: AbstractExplicitLayer 
+   B::TB
+end
+
+Base.length(l::GenericEmbedding) = length(l.B)
+
+(l::GenericEmbedding)(args...) = l.B(args...)
+
+Polynomials4ML.evaluate!(out, l::GenericEmbedding, args...) = 
+         Polynomials4ML.evaluate!(out, l.B, args...)
+
+initialparameters(rng::AbstractRNG, l::GenericEmbedding) = 
+      initialparameters(l) 
+
+initialparameters(l::GenericEmbedding) = 
+         NamedTuple() 
+
+initialstates(rng::AbstractRNG, l::GenericEmbedding) = 
+         initialstates(l) 
+
+initialstates(l::GenericEmbedding) = 
+         NamedTuple() 
+
+
+#-------------------- Main BIP embedding layer 
+
+struct BIPbasis{T, TR, TT, TV} <: AbstractExplicitContainerLayer{(:bR, :bT, :bV)}
    bR::TR # r basis - k
    bT::TT # θ basis - l
    bV::TV # y basis - n
@@ -29,9 +56,18 @@ end
 
 Base.length(bip::BIPbasis) = length(bip.bAA)
 
-initialparameters(::BIPbasis) = NamedTuple()
+initialparameters(rng::AbstractRNG, bip::BIPbasis) = 
+      initialparameters(bip)
 
-initialstates(rng::AbstractRNG, bip::BIPbasis) = initialstates(bip)
+initialparameters(bip::BIPbasis) = (
+         bR = initialparameters(bip.bR), 
+         bT = initialparameters(bip.bT), 
+         bV = initialparameters(bip.bV), 
+      )
+
+
+initialstates(rng::AbstractRNG, bip::BIPbasis) = 
+         initialstates(bip)
 
 initialstates(bip::BIPbasis{T}) where {T} = (
          r = Vector{T}(undef, bip.maxlen), 
@@ -44,6 +80,10 @@ initialstates(bip::BIPbasis{T}) where {T} = (
          A = Vector{Complex{T}}(undef, length(bip.bA)),
          AA = Vector{T}(undef, length(bip.bAA)),
          AAc = Vector{Complex{T}}(undef, length(bip.bAA.dag)),
+         # 
+         bR = initialstates(bip.bR), 
+         bT = initialstates(bip.bT), 
+         bV = initialstates(bip.bV), 
       )
 
 
@@ -64,20 +104,23 @@ function convert_1pbasis(bR::ChebBasis)
    Bnew.A[3:end] .= 2 
    Bnew.B[:] .= 0.0 
    Bnew.C[:] .= -1.0 
-   return Bnew 
+   return GenericEmbedding(Bnew), idx_map(Bnew)
 end
 
-convert_1pbasis(bR::TrigBasis) = CTrigBasis(bR.maxL)
+function convert_1pbasis(bT::TrigBasis) 
+   Bnew = CTrigBasis(bT.maxL)
+   return GenericEmbedding(Bnew), idx_map(Bnew)
+end
 
-convert_1pbasis(bR::TrigBasisNA) = CTrigBasis(bR.maxL)
+function convert_1pbasis(bT::TrigBasisNA) 
+   Bnew = CTrigBasis(bT.maxL)
+   return GenericEmbedding(Bnew), idx_map(Bnew)
+end
 
 function convert_A_spec(Abasis)
-   bR = convert_1pbasis(Abasis.bR)
-   bT = convert_1pbasis(Abasis.bT)
-   bV = convert_1pbasis(Abasis.bV)
-   iR = idx_map(bR)
-   iT = idx_map(bT)
-   iV = idx_map(bV)
+   bR, iR = convert_1pbasis(Abasis.bR)
+   bT, iT = convert_1pbasis(Abasis.bT)
+   bV, iV = convert_1pbasis(Abasis.bV)
    spec = [ (iR[b.k], iT[b.l], iV[b.n]) for b in Abasis.spec ]
    return spec, (bR, bT, bV)
 end

@@ -1,5 +1,5 @@
 using BIPs, Statistics, StaticArrays, Random, Test, ACEcore, 
-      Polynomials4ML, LinearAlgebra
+      Polynomials4ML, LinearAlgebra, LuxCore
 using Polynomials4ML.Testing: print_tf      
 
 include("testing_tools.jl")
@@ -36,7 +36,6 @@ X = identity.(hyp_jets[1])
 rng = MersenneTwister(1234)
 ps, st = LuxCore.setup(rng, f_bip_lux)
 @btime $f_bip_lux($X, $ps, $st)
-
 
 ## 
 
