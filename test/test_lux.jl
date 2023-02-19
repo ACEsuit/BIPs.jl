@@ -39,6 +39,14 @@ ps, st = LuxCore.setup(rng, f_bip_lux)
 
 ## 
 
+@profview let f_bip_lux = f_bip_lux, X = X, ps = ps, st = st 
+      for _ = 1:500_000 
+            f_bip_lux(X, ps, st)
+      end
+end
+
+##
+
 using Lux 
 
 model = Chain(; bip = f_bip_lux, 

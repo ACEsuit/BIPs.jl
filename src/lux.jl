@@ -17,16 +17,36 @@ import LuxCore: initialparameters, initialstates,
 # ----------- a simple embedding interface 
 #             so that We can give make learnable embeddings 
 
-struct GenericEmbedding{TB} <: AbstractExplicitLayer 
+# careful, this assumes that transform is not trainable 
+# This Lux wrapper should go into ACEbase or Polynomials4ML 
+# but for now this is a convenient prototype implementation
+struct GenericEmbedding{TIN, TOUT, TT, TB} <: AbstractExplicitLayer 
+   transform::TT
    B::TB
+   maxlen::Int 
 end
+
+GenericEmbedding(TIN, TOUT, transform, B, maxlen) = 
+      GenericEmbedding{TIN, TOUT, typeof(transform), typeof(B)}(
+         transform, B, maxlen
+      )
 
 Base.length(l::GenericEmbedding) = length(l.B)
 
-(l::GenericEmbedding)(args...) = l.B(args...)
+function (l::GenericEmbedding)(X, ps, st)
+   nX = length(X) 
+   x = st.x  
+   P = st.P 
+   @assert length(x) >= nX
+   @assert size(P, 1) >= nX
 
-Polynomials4ML.evaluate!(out, l::GenericEmbedding, args...) = 
-         Polynomials4ML.evaluate!(out, l.B, args...)
+   # transform input to correct format 
+   @simd ivdep for i = 1:nX 
+      @inbounds x[i] = l.transform(X[i])
+   end
+   # now evaluate the embedding 
+   Polynomials4ML.evaluate!(P, l.B, x)
+end
 
 initialparameters(rng::AbstractRNG, l::GenericEmbedding) = 
       initialparameters(l) 
@@ -37,8 +57,73 @@ initialparameters(l::GenericEmbedding) =
 initialstates(rng::AbstractRNG, l::GenericEmbedding) = 
          initialstates(l) 
 
-initialstates(l::GenericEmbedding) = 
-         NamedTuple() 
+initialstates(l::GenericEmbedding{TIN, TOUT}) where {TIN, TOUT} = (
+         x = Vector{TIN}(undef, l.maxlen), 
+         P = Matrix{TOUT}(undef, l.maxlen, length(l.B))
+      )
+         
+
+# ---------------- BIP Radial embedding Layer - simple version 
+
+struct SimpleRtMEmbedding{T, TR} <: AbstractExplicitLayer
+   # r_transform::TTR   # x -> (log(x[1]) + 4.7) / 6, 
+   # tM_transform::TTM  # x -> x[5] 
+   r_embed::TR
+   maxlen::Int 
+end
+
+SimpleRtMEmbedding(T, r_embed, maxlen) = 
+      SimpleRtMEmbedding{T, typeof(r_embed)}(r_embed, maxlen)
+
+initialparameters(rng::AbstractRNG, l::SimpleRtMEmbedding) = 
+      initialparameters(l) 
+
+initialparameters(l::SimpleRtMEmbedding) = 
+      NamedTuple()
+         
+initialstates(rng::AbstractRNG, l::SimpleRtMEmbedding) = 
+         initialstates(l) 
+
+initialstates(l::SimpleRtMEmbedding{T}) where {T} = (
+      rt = (4.7, 6.0),   # r transform parameters 
+      r = Vector{T}(undef, l.maxlen), 
+      tM = Vector{T}(undef, l.maxlen), 
+      R = Matrix{T}(undef, l.maxlen, length(l.r_embed))
+   )
+
+function (l::SimpleRtMEmbedding)(X, ps, st)
+   nX = length(X) 
+   r = @view st.r[1:nX]
+   tM = st.tM 
+   R = st.R 
+   @assert size(R, 1) >= nX 
+   @assert length(r) >= nX 
+   @assert length(tM) >= nX 
+   @assert size(R, 2) >= length(l.r_embed)
+
+   a, b = st.rt
+
+   @inbounds begin 
+      @simd ivdep for i = 1:nX 
+         x = X[i] 
+         r[i] = (log(x[1]) + 4.7) / 6   # log(x[1] + a) / b 
+         tM[i] = x[5] 
+      end
+
+      # evaluate the r embedding 
+      Polynomials4ML.evaluate!(R, l.r_embed, r)
+
+      # apply the tM rescaling 
+      @inbounds for j = 1:length(l.r_embed)
+         @simd ivdep for i = 1:nX
+            R[i, j] *= tM[i]
+         end
+      end
+
+   end
+
+   return R 
+end
 
 
 #-------------------- Main BIP embedding layer 
@@ -70,13 +155,13 @@ initialstates(rng::AbstractRNG, bip::BIPbasis) =
          initialstates(bip)
 
 initialstates(bip::BIPbasis{T}) where {T} = (
-         r = Vector{T}(undef, bip.maxlen), 
-         θ = Vector{T}(undef, bip.maxlen),
-         y = Vector{T}(undef, bip.maxlen),
+         # r = Vector{T}(undef, bip.maxlen), 
+         # θ = Vector{T}(undef, bip.maxlen),
+         # y = Vector{T}(undef, bip.maxlen),
          tM = Vector{T}(undef, bip.maxlen),
-         R = Matrix{T}(undef, bip.maxlen, length(bip.bR)),
-         T = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bT)),
-         V = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bV)),
+         # R = Matrix{T}(undef, bip.maxlen, length(bip.bR)),
+         # T = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bT)),
+         # V = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bV)),
          A = Vector{Complex{T}}(undef, length(bip.bA)),
          AA = Vector{T}(undef, length(bip.bAA)),
          AAc = Vector{Complex{T}}(undef, length(bip.bAA.dag)),
@@ -98,29 +183,45 @@ function idx_map(basis)
    return ia 
 end
 
-function convert_1pbasis(bR::ChebBasis) 
+function convert_r_basis(bR::ChebBasis, maxlen)
    Bnew = chebyshev_basis(bR.maxn+1)
    Bnew.A[1:2] .= 1.0 
    Bnew.A[3:end] .= 2 
    Bnew.B[:] .= 0.0 
    Bnew.C[:] .= -1.0 
-   return GenericEmbedding(Bnew), idx_map(Bnew)
+   # l = GenericEmbedding(Float64, Float64, 
+   #          x -> (log(x[1]) + 4.7) / 6, 
+   #          Bnew, 
+   #          maxlen)
+   l = SimpleRtMEmbedding(Float64, Bnew, maxlen) 
+   return l, idx_map(Bnew)
 end
 
-function convert_1pbasis(bT::TrigBasis) 
+function convert_θ_basis(bT::Union{TrigBasis, TrigBasisNA}, maxlen) 
    Bnew = CTrigBasis(bT.maxL)
-   return GenericEmbedding(Bnew), idx_map(Bnew)
+   l = GenericEmbedding(Float64, ComplexF64, 
+            x -> atan(x[3], x[2]),
+            Bnew, 
+            maxlen
+         )
+   return l, idx_map(Bnew)
 end
 
-function convert_1pbasis(bT::TrigBasisNA) 
+function convert_y_basis(bT::Union{TrigBasis, TrigBasisNA}, maxlen) 
    Bnew = CTrigBasis(bT.maxL)
-   return GenericEmbedding(Bnew), idx_map(Bnew)
+   l = GenericEmbedding(Float64, ComplexF64, 
+            x -> x[4], 
+            Bnew, 
+            maxlen
+         )
+   return l, idx_map(Bnew)
 end
 
-function convert_A_spec(Abasis)
-   bR, iR = convert_1pbasis(Abasis.bR)
-   bT, iT = convert_1pbasis(Abasis.bT)
-   bV, iV = convert_1pbasis(Abasis.bV)
+
+function convert_A_spec(Abasis, maxlen)
+   bR, iR = convert_r_basis(Abasis.bR, maxlen)
+   bT, iT = convert_θ_basis(Abasis.bT, maxlen)
+   bV, iV = convert_y_basis(Abasis.bV, maxlen)
    spec = [ (iR[b.k], iT[b.l], iV[b.n]) for b in Abasis.spec ]
    return spec, (bR, bT, bV)
 end
@@ -135,7 +236,7 @@ function convert_AA_spec(f_bip)
 end
 
 function BIPbasis(f_bip_old; maxlen = 200)
-   spec_A, (bR, bT, bV) = convert_A_spec(f_bip_old.Abasis)
+   spec_A, (bR, bT, bV) = convert_A_spec(f_bip_old.Abasis, maxlen)
    bA = PooledSparseProduct{3}(spec_A)
    bAA = convert_AA_spec(f_bip_old)
    return BIPbasis(bR, bT, bV, bA, bAA, maxlen)
@@ -153,14 +254,14 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector})
 end
 
 # function barrier 
-function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, st::NamedTuple)
-   r = st.r 
-   θ = st.θ
-   y = st.y
+function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, ps, st::NamedTuple)
+   # r = st.r 
+   # θ = st.θ
+   # y = st.y
    tM = st.tM
-   R = st.R
-   T = st.T
-   V = st.V
+   # R = st.R
+   # T = st.T
+   # V = st.V
    A = st.A
    AA = st.AA
    AAc = st.AAc
@@ -172,22 +273,23 @@ function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, st::NamedTuple)
 
    @inbounds @simd for i = 1:nX
       x = X[i] 
-      r[i] = (log(x[1]) + 4.7) / 6
-      θ[i] = atan(x[3], x[2])
-      y[i] = x[4]
+      # r[i] = (log(x[1]) + 4.7) / 6
+      # θ[i] = atan(x[3], x[2])
+      # y[i] = x[4]
       tM[i] = x[5]
    end
 
-   Polynomials4ML.evaluate!(R, bipf.bR, (@view r[1:nX]))
-   Polynomials4ML.evaluate!(T, bipf.bT, (@view θ[1:nX]))
-   Polynomials4ML.evaluate!(V, bipf.bV, (@view y[1:nX]))
+   R = bipf.bR(X, ps.bR, st.bR)
+   T = bipf.bT(X, ps.bT, st.bT)
+   V = bipf.bV(X, ps.bV, st.bV)
 
-   # rescale with transverse momentum 
-   @inbounds for j = 1:size(R, 2)
-      @simd ivdep for i = 1:nX
-         R[i, j] *= tM[i]
-      end
-   end
+   # rescale with transverse momentum
+   #   TODO: inforporate into R basis  
+   # @inbounds for j = 1:size(R, 2)
+   #    @simd ivdep for i = 1:nX
+   #       R[i, j] *= tM[i]
+   #    end
+   # end
 
    # this is the bottleneck!!! 
    ACEcore.evalpool!(A, bipf.bA, (R, T, V), nX)
@@ -203,9 +305,9 @@ function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, st::NamedTuple)
 end
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
-   AA = Zygote.ignore() do
-      _eval!(bipf, X, st)
-   end
+   # AA = Zygote.ignore() do
+   AA = _eval!(bipf, X, ps, st)
+   # end
    return AA, st 
 end
 
