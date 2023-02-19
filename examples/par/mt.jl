@@ -1,6 +1,12 @@
 
 using BIPs, Statistics, StaticArrays, Random, LinearAlgebra, Lux, 
-       Optimisers
+       Optimisers, ThreadsX
+
+# example of serial and multi-threaded training loop 
+# not very elegant but the main functionality I'd like to use 
+# doesn't appear to support Zygote differentiation?!?       
+# there is also a ridiculous amount of memory allocation going on
+# that I want to track down.
 
 include("../../test/testing_tools.jl")
 hyp_jets = sample_hyp_jets
@@ -46,7 +52,7 @@ loss_function(model, ps, st, data)
 function main(tstate, vjp, data, epochs)
    for epoch in 1:epochs
       grads, loss, stats, tstate = Lux.Training.compute_gradients(vjp, loss_function, data, tstate)
-      @info epoch=epoch loss=loss
+      (mod(epoch, 10) == 0) && (@info epoch=epoch loss=loss)
       tstate = Lux.Training.apply_gradients(tstate, grads)
    end
    return tstate
@@ -57,7 +63,7 @@ train_state = Lux.Training.TrainState(rng, model, opt)
 vjp = Lux.Training.ZygoteVJP()
 
 # take 10 training steps
-@time tstate = main(train_state, vjp, data, 10)
+@time tstate = main(train_state, vjp, data, 100)
 
 # trained parameters:
 ps_opt = tstate.parameters
@@ -69,12 +75,6 @@ ps_opt = tstate.parameters
 # One would think that Folds.map or ThreadsX.map would work but 
 # they don't have rrules, so unfortunately we need to manage this
 # manually. :(
-
-using ThreadsX
-using FLoops, ThreadsX, Folds, FoldsChainRules
-using ChainRulesCore 
-import ChainRulesCore: rrule 
-
 
 function split_data(data::Tuple, N::Integer) 
    Ndat = length(data[1])
@@ -106,7 +106,7 @@ function mt_main(tstate, vjp, data, epochs)
    data_split = split_data(data, Threads.nthreads())
    for epoch in 1:epochs
       grads, loss = mt_gradients(vjp, loss_function, data_split, tstate)
-      @info epoch=epoch loss=loss
+      (mod(epoch, 10) == 0) && @info epoch=epoch loss=loss
       tstate = Lux.Training.apply_gradients(tstate, grads)
    end
    return tstate
@@ -117,38 +117,7 @@ tstate = Lux.Training.TrainState(rng, model, opt)
 vjp = Lux.Training.ZygoteVJP()
 
 # take 10 training steps
-@time tstate = mt_main(tstate, vjp, data, 10)
+@time tstate = mt_main(tstate, vjp, data, 100)
 
 # trained parameters:
 ps_opt = tstate.parameters
-
-
-## 
-# distributed implementation of the training loop
-
-# (alternatively could also use pmap)
-
-using Distributed
-
-@everywhere using BIPs, Statistics, StaticArrays, Random, LinearAlgebra, Lux, 
-       Optimisers
-
-addprocs(4)
-
-
-function loss_function(model, ps, st, data)
-   P = [ model(jet, ps, st)[1] for jet in data[1] ]
-   Y = data[2]
-   return sum( Y .* log.(P) + (1 .- Y) .* log.(1 .- P) ), st, ()
-end
-
-
-
-function parallel(model, data, epochs)
-
-   opt = Optimisers.ADAM(0.001)
-   train_state = Lux.Training.TrainState(rng, model, opt)
-   vjp = Lux.Training.ZygoteVJP()
-   
-end
-
