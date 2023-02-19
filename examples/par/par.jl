@@ -36,15 +36,14 @@ model(jets[1], ps, st)[1]
 data = (jets, labels)
 
 function loss_function(model, ps, st, data)
-   P = [ model(jet, ps, st)[1] for jet in data[1] ]
-   Y = data[2]
-   return sum( Y .* log.(P) + (1 .- Y) .* log.(1 .- P) ), st, ()
+   jets, Y = data
+   P = map(jet -> model(jet, ps, st)[1], jets)
+   return sum(Y .* log.(P) .+ (1 .- Y) .* log.(1 .- P)), st, ()
 end
 
-# loss(model, ps, st, data)
+loss_function(model, ps, st, data)
 
-
-function serial(tstate, vjp, data, epochs)
+function main(tstate, vjp, data, epochs)
    for epoch in 1:epochs
       grads, loss, stats, tstate = Lux.Training.compute_gradients(vjp, loss_function, data, tstate)
       @info epoch=epoch loss=loss
@@ -58,14 +57,98 @@ train_state = Lux.Training.TrainState(rng, model, opt)
 vjp = Lux.Training.ZygoteVJP()
 
 # take 10 training steps
-tstate = serial(train_state, vjp, data, 10)
+@time tstate = main(train_state, vjp, data, 10)
 
 # trained parameters:
 ps_opt = tstate.parameters
 
 
 ## 
-# parallel implementation of the training loop
+# multi-threaded implementation of the training loop
+# the problem is that if we do it naively then Zygote complains 
+# One would think that Folds.map or ThreadsX.map would work but 
+# they don't have rrules, so unfortunately we need to manage this
+# manually. :(
+
+using ThreadsX
+using FLoops, ThreadsX, Folds, FoldsChainRules
+using ChainRulesCore 
+import ChainRulesCore: rrule 
 
 
+function split_data(data::Tuple, N::Integer) 
+   Ndat = length(data[1])
+   Nblock = ceil(Int, Ndat / N)
+   jets = [ data[1][i:min(i+Nblock-1, Ndat)] for i in 1:Nblock:Ndat ]
+   labels = [ data[2][i:min(i+Nblock-1, Ndat)] for i in 1:Nblock:Ndat ]
+   return [ (jets[i], labels[i]) for i in 1:length(jets) ]
+end
+
+
+function mt_gradients(vjp, loss_function, mt_data, tstate)
+   nt = length(mt_data)
+   mt_tst = [ deepcopy(tstate) for i in 1:nt ]
+   mt_out = ThreadsX.map(1:nt) do i
+      # grads, loss, stats, tstate
+      Lux.Training.compute_gradients(vjp, loss_function, mt_data[i], mt_tst[i])
+   end
+   _add(x, y) = x + y 
+   _add(::Nothing, ::Nothing) = nothing              
+   loss = sum(mt_out[i][2] for i in 1:nt)
+   grads = mt_out[1][1] 
+   for i in 2:nt
+      grads = Lux.fmap(_add, grads, mt_out[i][1])
+   end
+   return grads, loss
+end
+
+function mt_main(tstate, vjp, data, epochs)
+   data_split = split_data(data, Threads.nthreads())
+   for epoch in 1:epochs
+      grads, loss = mt_gradients(vjp, loss_function, data_split, tstate)
+      @info epoch=epoch loss=loss
+      tstate = Lux.Training.apply_gradients(tstate, grads)
+   end
+   return tstate
+end
+
+opt = Optimisers.ADAM(0.001)
+tstate = Lux.Training.TrainState(rng, model, opt)
+vjp = Lux.Training.ZygoteVJP()
+
+# take 10 training steps
+@time tstate = mt_main(tstate, vjp, data, 10)
+
+# trained parameters:
+ps_opt = tstate.parameters
+
+
+## 
+# distributed implementation of the training loop
+
+# (alternatively could also use pmap)
+
+using Distributed
+
+@everywhere using BIPs, Statistics, StaticArrays, Random, LinearAlgebra, Lux, 
+       Optimisers
+
+addprocs(4)
+
+
+function loss_function(model, ps, st, data)
+   P = [ model(jet, ps, st)[1] for jet in data[1] ]
+   Y = data[2]
+   return sum( Y .* log.(P) + (1 .- Y) .* log.(1 .- P) ), st, ()
+end
+
+
+
+function parallel(model, data, epochs)
+
+   opt = Optimisers.ADAM(0.001)
+   train_state = Lux.Training.TrainState(rng, model, opt)
+   vjp = Lux.Training.ZygoteVJP()
+   
+end
 
