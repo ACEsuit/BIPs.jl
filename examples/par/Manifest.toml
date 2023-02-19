@@ -2,7 +2,7 @@
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "f39bb9e6bd22e12e94be80cf710c4ea776c12e8a"
+project_hash = "1cac7fede355154983a2a7c06725c1560184a793"
 
 [[deps.ACEbase]]
 deps = ["DataStructures", "JSON", "LinearAlgebra", "Printf", "Reexport", "SparseArrays", "StaticArrays", "Test", "ZipFile"]
@@ -769,6 +769,12 @@ version = "0.2.14"
 git-tree-sha1 = "85f8e6578bf1f9ee0d11e7bb1b1456435479d47c"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 version = "1.4.1"
+
+[[deps.ParallelDataTransfer]]
+deps = ["Distributed", "Random", "Test"]
+git-tree-sha1 = "75e75900c8b0d8dfb69cbe082832b1dc9f8aacfe"
+uuid = "2dcacdae-9679-587a-88bb-8b444fb7085b"
+version = "0.5.0"
 
 [[deps.Parsers]]
 deps = ["Dates", "SnoopPrecompile"]
