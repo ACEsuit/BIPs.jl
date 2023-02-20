@@ -66,8 +66,8 @@ initialstates(l::GenericEmbedding{TIN, TOUT}) where {TIN, TOUT} = (
 
 # ---------------- BIP Radial embedding Layer - simple version 
 
-struct SimpleRtMEmbedding{T, TRT, TR} <: AbstractExplicitLayer
-   r_trans::TRT
+struct SimpleRtMEmbedding{T, TTR, TR} <: AbstractExplicitLayer
+   r_trans::TTR
    r_embed::TR
    maxlen::Int 
 end
@@ -103,8 +103,8 @@ function (l::SimpleRtMEmbedding)(X, ps, st)
    @inbounds begin 
       @simd ivdep for i = 1:nX 
          x = X[i] 
-         # l.r_trans(x)   # log(x[1] + 4.7) / 6
-         r[i] = log(x[1] + 4.7) / 6 
+         # (log(x[1]) + 4.7) / 6   # log(x[1] + a) / b 
+         r[i] = l.r_trans(x)
          tM[i] = x[5] 
       end
 
@@ -180,8 +180,8 @@ function convert_r_basis(bR::ChebBasis, maxlen)
    Bnew.A[3:end] .= 2 
    Bnew.B[:] .= 0.0 
    Bnew.C[:] .= -1.0 
-   rtrans = x -> log(x[1] + 4.7) / 6
-   l = SimpleRtMEmbedding(Float64, rtrans, Bnew, maxlen) 
+   r_trans = x -> (log(x[1]) + 4.7) / 6
+   l = SimpleRtMEmbedding(Float64, r_trans, Bnew, maxlen) 
    return l, idx_map(Bnew)
 end
 
