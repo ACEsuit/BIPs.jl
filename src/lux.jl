@@ -66,8 +66,6 @@ initialstates(l::GenericEmbedding{TIN, TOUT}) where {TIN, TOUT} = (
 # ---------------- BIP Radial embedding Layer - simple version 
 
 struct SimpleRtMEmbedding{T, TR} <: AbstractExplicitLayer
-   # r_transform::TTR   # x -> (log(x[1]) + 4.7) / 6, 
-   # tM_transform::TTM  # x -> x[5] 
    r_embed::TR
    maxlen::Int 
 end
@@ -155,13 +153,6 @@ initialstates(rng::AbstractRNG, bip::BIPbasis) =
          initialstates(bip)
 
 initialstates(bip::BIPbasis{T}) where {T} = (
-         # r = Vector{T}(undef, bip.maxlen), 
-         # θ = Vector{T}(undef, bip.maxlen),
-         # y = Vector{T}(undef, bip.maxlen),
-         tM = Vector{T}(undef, bip.maxlen),
-         # R = Matrix{T}(undef, bip.maxlen, length(bip.bR)),
-         # T = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bT)),
-         # V = Matrix{Complex{T}}(undef, bip.maxlen, length(bip.bV)),
          A = Vector{Complex{T}}(undef, length(bip.bA)),
          AA = Vector{T}(undef, length(bip.bAA)),
          AAc = Vector{Complex{T}}(undef, length(bip.bAA.dag)),
@@ -189,10 +180,6 @@ function convert_r_basis(bR::ChebBasis, maxlen)
    Bnew.A[3:end] .= 2 
    Bnew.B[:] .= 0.0 
    Bnew.C[:] .= -1.0 
-   # l = GenericEmbedding(Float64, Float64, 
-   #          x -> (log(x[1]) + 4.7) / 6, 
-   #          Bnew, 
-   #          maxlen)
    l = SimpleRtMEmbedding(Float64, Bnew, maxlen) 
    return l, idx_map(Bnew)
 end
@@ -255,13 +242,6 @@ end
 
 # function barrier 
 function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, ps, st::NamedTuple)
-   # r = st.r 
-   # θ = st.θ
-   # y = st.y
-   tM = st.tM
-   # R = st.R
-   # T = st.T
-   # V = st.V
    A = st.A
    AA = st.AA
    AAc = st.AAc
@@ -271,25 +251,9 @@ function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, ps, st::NamedTupl
       error("BIPbasis: $nX = nX > maxlen = $(bip.maxlen)")
    end
 
-   @inbounds @simd for i = 1:nX
-      x = X[i] 
-      # r[i] = (log(x[1]) + 4.7) / 6
-      # θ[i] = atan(x[3], x[2])
-      # y[i] = x[4]
-      tM[i] = x[5]
-   end
-
    R = bipf.bR(X, ps.bR, st.bR)
    T = bipf.bT(X, ps.bT, st.bT)
    V = bipf.bV(X, ps.bV, st.bV)
-
-   # rescale with transverse momentum
-   #   TODO: inforporate into R basis  
-   # @inbounds for j = 1:size(R, 2)
-   #    @simd ivdep for i = 1:nX
-   #       R[i, j] *= tM[i]
-   #    end
-   # end
 
    # this is the bottleneck!!! 
    ACEcore.evalpool!(A, bipf.bA, (R, T, V), nX)
