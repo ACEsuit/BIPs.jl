@@ -37,13 +37,6 @@ rng = MersenneTwister(1234)
 ps, st = LuxCore.setup(rng, f_bip_lux)
 @btime $f_bip_lux($X, $ps, $st)
 
-## 
-
-@profview let f_bip_lux = f_bip_lux, X = X, ps = ps, st = st 
-      for _ = 1:500_000 
-            f_bip_lux(X, ps, st)
-      end
-end
 
 ##
 

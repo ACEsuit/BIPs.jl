@@ -45,7 +45,8 @@ function (l::GenericEmbedding)(X, ps, st)
       @inbounds x[i] = l.transform(X[i])
    end
    # now evaluate the embedding 
-   Polynomials4ML.evaluate!(P, l.B, x)
+   Polynomials4ML.evaluate!(P, l.B, (@view x[1:nX]))
+   return P 
 end
 
 initialparameters(rng::AbstractRNG, l::GenericEmbedding) = 
@@ -269,9 +270,9 @@ function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, ps, st::NamedTupl
 end
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
-   # AA = Zygote.ignore() do
-   AA = _eval!(bipf, X, ps, st)
-   # end
+   AA = Zygote.ignore() do
+      _eval!(bipf, X, ps, st)
+   end
    return AA, st 
 end
 
