@@ -290,25 +290,29 @@ function simple_chebyshev(maxn)
 end
 
 
+
 function simple_bips(; order = 3, maxlevel = 6, n_pt = 5, n_th = 3, n_y = 3, 
                        maxlen = 200)
 
    # radial embedding : this also incorporate the * tM operation
    cheb = simple_chebyshev(n_pt)
    inds_pt = natural_indices(cheb)
+   inv_pt = idx_map(cheb)
    pt_trans = x -> (log(x[1]) + 4.7) / 6
-   B_pt = SimpleRtMEmbedding(Float64, pt_trans, cheb, maxlen) 
+   bR = SimpleRtMEmbedding(Float64, pt_trans, cheb, maxlen) 
 
    # angular embedding 
    trig_θ = CTrigBasis(n_th)
    inds_θ = natural_indices(trig_θ)
-   B_θ = GenericEmbedding(Float64, ComplexF64, 
-                          x -> atan2(x[3], x[2]), trig_θ, maxlen)
+   inv_θ = idx_map(trig_θ)
+   bT = GenericEmbedding(Float64, ComplexF64, 
+                          x -> atan(x[3], x[2]), trig_θ, maxlen)
 
    # y embedding 
    trig_y = CTrigBasis(n_y)
    inds_y = natural_indices(trig_y)
-   B_y = GenericEmbedding(Float64, ComplexF64, 
+   inv_y = idx_map(trig_y)
+   bY = GenericEmbedding(Float64, ComplexF64, 
                           x -> x[4], trig_y, maxlen)
 
    # generate a specification 
@@ -316,6 +320,22 @@ function simple_bips(; order = 3, maxlevel = 6, n_pt = 5, n_th = 3, n_y = 3,
             order = order, levels = maxlevel)
    spec_A, levels = BIPs.BiPolynomials.generate_spec_A(inds_pt, inds_θ, inds_y, Bsel)
    spec_AA = BIPs.BiPolynomials.generate_spec_AA(spec_A, levels, Bsel)
+
+   # generate the one-particle basis 
+   spec_A_2 = [ (inv_pt[b.k], inv_θ[b.l], inv_y[b.n]) for b in spec_A ]
+   bA = PooledSparseProduct{3}(spec_A_2)
+
+   # ... and the AA basis 
+   @assert length(spec_AA[1]) == 0 
+   # replace this one with a duplicate, this is a hack needed because 
+   # the current AA basis evaluator doesn't admit, this is fixed in the 
+   # evaluator code. 
+   spec_AA[1] = copy(spec_AA[2])
+   spec_AA = sort.(spec_AA)   
+   bAA = SparseSymmProd(spec_AA; T = ComplexF64)
+
+   # put it all together 
+   return BIPbasis(bR, bT, bY, bA, bAA, maxlen)
 end
 
 

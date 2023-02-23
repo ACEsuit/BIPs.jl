@@ -7,22 +7,40 @@ hyp_jets = sample_hyp_jets
 
 ##
 
-f_bip, specs = build_ip(order=3,
-                        levels=6,
-                        n_pt=4,
-                        n_th=2,
-                        n_y=2)
+order = 3
+maxlevel = 6
+n_pt = 4
+n_th = 2
+n_y = 2
+
+f_bip, specs = build_ip(; 
+            order=order, levels=maxlevel, n_pt=n_pt, n_th=n_th, n_y=n_y)
 
 f_bip_lux = BIPs.LuxBIPs.BIPbasis(f_bip)
 
+f_bip_lux_2 = BIPs.LuxBIPs.simple_bips(; 
+            order=order, maxlevel=maxlevel, n_pt=n_pt, n_th=n_th, n_y=n_y)
+
 ##
 
+@info("old vs new implementation")
 for X in hyp_jets[1:100]
    AA1 = f_bip(X)
    AA2 = f_bip_lux(X)
    print_tf(@test norm((AA1 - AA2) ./ abs.(AA2), Inf) < 0.1)
    print_tf(@test norm(AA1 - AA2, Inf) / norm(AA2, Inf) < 1e-4)
 end
+println() 
+
+##
+
+@info("conversion vs constructor")
+for X in hyp_jets[1:100]
+   AA1 = f_bip_lux(X)
+   AA2 = f_bip_lux_2(X)
+   print_tf(@test norm(AA1 - AA2, Inf) == 0.0)
+end
+println() 
 
 ##
 
