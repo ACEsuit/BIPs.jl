@@ -7,7 +7,7 @@ using Polynomials4ML: natural_indices
 using BIPs.BiPolynomials.Modules: TrigBasis, TrigBasisNA, ChebBasis
 using LinearAlgebra: Diagonal, mul!
 using Random: AbstractRNG
-import Zygote
+import Zygote, BIPs
 
 using LuxCore 
 import LuxCore: initialparameters, initialstates, 
@@ -276,4 +276,48 @@ function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::Nam
    return AA, st 
 end
 
+
+# -------------- Interface 
+
+
+function simple_chebyshev(maxn)
+   cheb = chebyshev_basis(maxn+1)
+   cheb.A[1:2] .= 1.0 
+   cheb.A[3:end] .= 2 
+   cheb.B[:] .= 0.0 
+   cheb.C[:] .= -1.0 
+   return cheb
 end
+
+
+function simple_bips(; order = 3, maxlevel = 6, n_pt = 5, n_th = 3, n_y = 3, 
+                       maxlen = 200)
+
+   # radial embedding : this also incorporate the * tM operation
+   cheb = simple_chebyshev(n_pt)
+   inds_pt = natural_indices(cheb)
+   pt_trans = x -> (log(x[1]) + 4.7) / 6
+   B_pt = SimpleRtMEmbedding(Float64, pt_trans, cheb, maxlen) 
+
+   # angular embedding 
+   trig_θ = CTrigBasis(n_th)
+   inds_θ = natural_indices(trig_θ)
+   B_θ = GenericEmbedding(Float64, ComplexF64, 
+                          x -> atan2(x[3], x[2]), trig_θ, maxlen)
+
+   # y embedding 
+   trig_y = CTrigBasis(n_y)
+   inds_y = natural_indices(trig_y)
+   B_y = GenericEmbedding(Float64, ComplexF64, 
+                          x -> x[4], trig_y, maxlen)
+
+   # generate a specification 
+   Bsel = BIPs.BiPolynomials.Modules.BasisSelector(; 
+            order = order, levels = maxlevel)
+   spec_A, levels = BIPs.BiPolynomials.generate_spec_A(inds_pt, inds_θ, inds_y, Bsel)
+   spec_AA = BIPs.BiPolynomials.generate_spec_AA(spec_A, levels, Bsel)
+end
+
+
+end
+

@@ -8,10 +8,10 @@ hyp_jets = sample_hyp_jets
 ##
 
 f_bip, specs = build_ip(order=3,
-      levels=6,
-      n_pt=4,
-      n_th=2,
-      n_y=2)
+                        levels=6,
+                        n_pt=4,
+                        n_th=2,
+                        n_y=2)
 
 f_bip_lux = BIPs.LuxBIPs.BIPbasis(f_bip)
 
