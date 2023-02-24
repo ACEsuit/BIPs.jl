@@ -108,12 +108,7 @@ print("Time grad: ");
 @time gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
 
 # via the same kind of mechanism one can now use the Lux training machinery
-#   http://lux.csail.mit.edu/stable/examples/generated/beginner/PolynomialFitting/main/
-
-# If we want to multi-thread this, then we need to deepcopy the parameters 
-# and the state. Then we can evaluate the loss and gradient on each thread 
-# for a different subset of the training set and in the end combine the 
-# gradients. 
+# cf. examples/lux 
 
 ## ------------- Enzyme Tests ----------------
 
