@@ -70,3 +70,21 @@ gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
 print("Time grad: "); 
 @time gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
 
+##
+# Finite difference test 
+
+using Printf 
+
+ps_vec, re = destructure(ps)
+us_vec = randn(length(ps_vec)) ./ (1:length(ps_vec)).^2
+_ps(t) = re(ps_vec + t * us_vec)
+_dot(nt1::NamedTuple, nt2::NamedTuple) = dot(destructure(nt1)[1], destructure(nt2)[1])
+
+f0 = loss(model, ps, st, data)[1] 
+df0 = dot(destructure(gs)[1], us_vec)
+
+for h in (0.1).^(2:10)
+   fh = loss(model, _ps(h), st, data)[1]
+   df_h = (fh - f) / h
+   @printf(" %.2e | %.2e \n", h, abs(df_h - df0) )
+end
