@@ -26,7 +26,7 @@ function (l::GenericEmbedding)(X, ps, st)
    P = ignore_derivatives() do
       _eval(l::GenericEmbedding, X, ps, st)
    end
-   return P 
+   return P, st 
 end
 
 function _eval(l::GenericEmbedding, X, ps, st) 
@@ -93,7 +93,7 @@ function (l::SimpleRtMEmbedding)(X, ps, st)
    R = ignore_derivatives() do 
       _eval(l, X, ps, st)
    end
-   return R 
+   return R, st 
 end 
 
 function _eval(l::SimpleRtMEmbedding, X, ps, st)
@@ -170,14 +170,14 @@ initialstates(l::RtMEmbedding) = initialstates(Random.GLOBAL_RNG, l)
 function (l::RtMEmbedding{T})(X::AbstractVector{<: SVector}, ps, st) where {T} 
    nX = length(X)
    @assert nX <= l.maxlen
-   R = l.r_embed(X, ps.r_embed, st.r_embed)
+   R, _ = l.r_embed(X, ps.r_embed, st.r_embed)
    R_ = @view R[1:nX, :]
-   M = l.m_embed(X, ps.m_embed, st.m_embed)
+   M, _ = l.m_embed(X, ps.m_embed, st.m_embed)
    M_ = @view M[1:nX, :]
-   P = Matrix{T}(undef, length(X), l.nmax)
+   P, _ = Matrix{T}(undef, length(X), l.nmax)
    @tullio P[i, n] := ps.W[n, k1, k2] * R_[i, k1] * M_[i, k2]
    # here we can release R, M
-   return P 
+   return P, st 
 end
 
 

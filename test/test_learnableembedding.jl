@@ -24,14 +24,23 @@ yB = BIPs.LuxBIPs.y_embedding(; n_y = n_y, maxlen=maxlen)
 
 f_bip = BIPs.LuxBIPs.bips(tB, θB, yB, order=order, maxlevel=maxlevel)
 
+f_bip_s = BIPs.LuxBIPs.simple_bips(; 
+            order=order, maxlevel=maxlevel, 
+            n_pt=n_pt, n_th=n_th, n_y=n_y, 
+            maxlen = maxlen)
+
 X = jets[1]
 ps, st = LuxCore.setup(rng, f_bip)
 f_bip(X, ps, st)[1]
 
+pss, sts = LuxCore.setup(rng, f_bip_s)
+f_bip_s(X, pss, sts)[1]
+
 ##
 
-model = Chain(; bip = f_bip, 
-                l1 = Dense(length(f_bip), 10, tanh), 
+f_bip_ = f_bip_s
+model = Chain(; bip = f_bip_, 
+                l1 = Dense(length(f_bip_), 10, tanh), 
                 l2 = Dense(10, 10, tanh), 
                 l3 = Dense(10, 1), 
                 out = WrappedFunction(x -> x[1]), )
@@ -88,3 +97,4 @@ for h in (0.1).^(2:10)
    df_h = (fh - f) / h
    @printf(" %.2e | %.2e \n", h, abs(df_h - df0) )
 end
+

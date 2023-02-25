@@ -136,14 +136,15 @@ end
 
 # function barrier 
 function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, ps, st::NamedTuple)
-   R = bipf.bR(X, ps.bR, st.bR)
-   T = bipf.bT(X, ps.bT, st.bT)
-   Y = bipf.bV(X, ps.bV, st.bV)
-   return _eval_inner!(bipf, R, T, Y, st)
+   R, _ = bipf.bR(X, ps.bR, st.bR)
+   T, _ = bipf.bT(X, ps.bT, st.bT)
+   Y, _ = bipf.bV(X, ps.bV, st.bV)
+
+   nX = length(X)
+   return _eval_inner!(bipf, R, T, Y, st, nX)
 end
 
-function _eval_inner!(bipf, R, T, Y, st)
-   nX = size(R, 1)
+function _eval_inner!(bipf, R, T, Y, st, nX)
    if bipf.maxlen < nX 
       error("BIPbasis: $nX = nX > maxlen = $(bip.maxlen)")
    end
@@ -162,7 +163,7 @@ function _eval_inner!(bipf, R, T, Y, st)
       AA[i] = real(AAc[bipf.bAA.proj[i]])
    end
 
-   return AA 
+   return AA
 end
 
 
@@ -174,7 +175,7 @@ end
 
 import ChainRulesCore: rrule, NoTangent, ZeroTangent
 
-function rrule(::typeof(_eval_inner!), bipf, R, T, Y, st)
+function rrule(::typeof(_eval_inner!), bipf, R, T, Y, st, nX)
    A = st.A
    AA = st.AA
    AAc = st.AAc
