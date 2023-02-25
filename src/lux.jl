@@ -136,21 +136,24 @@ end
 
 # function barrier 
 function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, ps, st::NamedTuple)
-   A = st.A
-   AA = st.AA
-   AAc = st.AAc
+   R = bipf.bR(X, ps.bR, st.bR)
+   T = bipf.bT(X, ps.bT, st.bT)
+   Y = bipf.bV(X, ps.bV, st.bV)
+   return _eval_inner!(bipf, R, T, Y, st)
+end
 
-   nX = length(X)
+function _eval_inner!(bipf, R, T, Y, st)
+   nX = size(R, 1)
    if bipf.maxlen < nX 
       error("BIPbasis: $nX = nX > maxlen = $(bip.maxlen)")
    end
 
-   R = bipf.bR(X, ps.bR, st.bR)
-   T = bipf.bT(X, ps.bT, st.bT)
-   V = bipf.bV(X, ps.bV, st.bV)
+   A = st.A
+   AA = st.AA
+   AAc = st.AAc
 
    # this is the bottleneck!!! 
-   ACEcore.evalpool!(A, bipf.bA, (R, T, V), nX)
+   ACEcore.evalpool!(A, bipf.bA, (R, T, Y), nX)
 
    # this circumvents a performance bug in ACEcore 
    ACEcore.evaluate!(AAc, bipf.bAA.dag, A)
@@ -162,12 +165,51 @@ function _eval!(bipf::BIPbasis, X::AbstractVector{<: SVector}, ps, st::NamedTupl
    return AA 
 end
 
+
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
-   # AA = Zygote.ignore() do
-   #    _eval!(bipf, X, ps, st)
-   # end
    AA = _eval!(bipf, X, ps, st)
    return AA, st 
+end
+
+
+import ChainRulesCore: rrule, NoTangent, ZeroTangent
+
+function rrule(::typeof(_eval_inner!), bipf, R, T, Y, st)
+   A = st.A
+   AA = st.AA
+   AAc = st.AAc
+   nX = size(R, 1)
+
+   # layer 1: R, T, Y -> A
+   ACEcore.evalpool!(A, bipf.bA, (R, T, Y), nX)
+
+   # layer 2: A -> AAc 
+   ACEcore.evaluate!(AAc, bipf.bAA.dag, A)
+   AAc[1] = 1  # [hack]  ACEcore doesn't allow the constant basis function :(
+   map!(real, AAc, AAc)
+
+   # layer 3: AAc -> AA
+   AA[1] = 1 
+   @inbounds @simd ivdep for i = 2:length(bipf.bAA)
+      AA[i] = real(AAc[bipf.bAA.proj[i]])
+   end
+
+   function pb(ΔAA)
+      # 3: pullback from AA to AAc 
+      ΔAAc = zeros(ComplexF64, length(st.AAc))
+      ΔAAc[bipf.bAA.proj] = ΔAA
+      ΔAAc[1] = 0.0  
+
+      # 2: pullback from AAc to A
+      ΔA = zeros(ComplexF64, size(st.A))
+      ACEcore.pullback_arg!(ΔA, ΔAAc, bipf.bAA.dag, AAc) 
+
+      # 1: pullback from A to (R, T, Y)
+      ΔR, ΔT, ΔY = ACEcore._pullback_evalpool(ΔA, bipf.bA, (R, T, Y))
+      return (ZeroTangent(), ZeroTangent(), ΔR, ΔT, ΔY, ZeroTangent())
+   end
+
+   return AA, pb
 end
 
 
@@ -230,6 +272,39 @@ function simple_bips(; order = 3, maxlevel = 6, n_pt = 5, n_th = 3, n_y = 3,
 
    # put it all together 
    return BIPbasis(bR, bT, bY, bA, bAA, maxlen)
+end
+
+
+function bips(tB, θB, yB; order = 3, maxlevel = 6, maxlen = 200)
+
+   inds_pt = tB.meta["inds"]
+   inv_pt = tB.meta["inv"]
+   inds_θ = θB.meta["inds"]
+   inv_θ = θB.meta["inv"]
+   inds_y = yB.meta["inds"]
+   inv_y = yB.meta["inv"]
+
+   # generate a specification 
+   Bsel = BIPs.BiPolynomials.Modules.BasisSelector(; 
+                     order = order, levels = maxlevel)
+   spec_A, levels = BIPs.BiPolynomials.generate_spec_A(inds_pt, inds_θ, inds_y, Bsel)
+   spec_AA = BIPs.BiPolynomials.generate_spec_AA(spec_A, levels, Bsel)
+
+   # generate the one-particle basis 
+   spec_A_2 = [ (inv_pt[b.k], inv_θ[b.l], inv_y[b.n]) for b in spec_A ]
+   bA = PooledSparseProduct{3}(spec_A_2)
+
+   # ... and the AA basis 
+   @assert length(spec_AA[1]) == 0 
+   # replace this one with a duplicate, this is a hack needed because 
+   # the current AA basis evaluator doesn't admit, this is fixed in the 
+   # evaluator code. 
+   spec_AA[1] = copy(spec_AA[2])
+   spec_AA = sort.(spec_AA)   
+   bAA = SparseSymmProd(spec_AA; T = ComplexF64)
+
+   # put it all together 
+   return BIPbasis(tB, θB, yB, bA, bAA, maxlen)   
 end
 
 
