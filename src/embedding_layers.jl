@@ -2,6 +2,34 @@
 using ChainRules: ignore_derivatives
 using Random 
 
+# ----------- a simple wrapper that just says the layers inside not trainable 
+#
+
+"""
+a simple wrapper that just says the layers inside not trainable 
+just wraps the evaluation of the inner layer in a ignore_derivative() 
+this gives undefined results if the parameters are anything other than 
+empty NamedTuples
+"""
+struct ConstL{TL} <: AbstractExplicitLayer
+   l::TL
+end
+
+Base.length(l::ConstL) = length(l.l)
+
+initialparameters(rng::AbstractRNG, l::ConstL) = 
+      (l = initialparameters(l.l), ) 
+
+initialstates(rng::AbstractRNG, l::ConstL) = 
+      (l = initialstates(rng, l.l), )
+
+function (l::ConstL)(x, ps, st) 
+   return ignore_derivatives() do 
+      l.l(x, ps.l, st.l)
+   end
+end
+
+
 # ----------- a simple embedding interface 
 #             so that We can make learnable embeddings; cf below 
 

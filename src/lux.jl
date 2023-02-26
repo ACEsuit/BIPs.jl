@@ -287,7 +287,7 @@ function simple_bips(; order = 3, maxlevel = 6, n_pt = 5, n_th = 3, n_y = 3,
    bAA = SparseSymmProd(spec_AA; T = ComplexF64)
 
    # put it all together 
-   return BIPbasis(bR, bT, bY, bA, bAA, maxlen)
+   return ConstL(BIPbasis(bR, bT, bY, bA, bAA, maxlen))
 end
 
 
