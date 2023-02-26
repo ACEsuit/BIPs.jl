@@ -14,6 +14,8 @@ import LuxCore: initialparameters, initialstates,
                   AbstractExplicitLayer, 
                   AbstractExplicitContainerLayer
 
+using ChainRulesCore: ignore_derivatives
+
 include("embedding_layers.jl") 
 
 
@@ -27,6 +29,7 @@ struct BIPbasis{T, TR, TT, TV} <: AbstractExplicitContainerLayer{(:bR, :bT, :bV)
    bAA::SparseSymmProd{Complex{T}}
    maxlen::Int 
 end
+
 
 # ---------- parameter and state management
 
@@ -169,17 +172,28 @@ end
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
    AA = _eval!(bipf, X, ps, st)
+   # AA = ignore_derivatives() do 
+   #    _eval!(bipf, X, ps, st)
+   # end
    return AA, st 
 end
 
 
-import ChainRulesCore: rrule, NoTangent, ZeroTangent
+import ChainRulesCore: rrule, NoTangent, ZeroTangent, NoTangent
 
-function rrule(::typeof(_eval_inner!), bipf, R, T, Y, st, nX)
-   A = st.A
-   AA = st.AA
-   AAc = st.AAc
-   nX = size(R, 1)
+# function rrule(::typeof(_eval_inner!), bipf::BIPbasis{false}, R_, T_, Y_, st, nX)
+#    AA = _eval_inner!(bipf, R_, T_, Y_, st, nX)
+#    return AA, Δ -> (NoTangent(), NoTangent(), NoTangent(), NoTangent(), NoTangent(), NoTangent())
+# end
+
+
+function rrule(::typeof(_eval_inner!), bipf::BIPbasis, R_, T_, Y_, st, nX)
+   R = copy(collect(R_)) 
+   T = copy(collect(T_))
+   Y = copy(collect(Y_))
+   A = st.A |> copy 
+   AA = st.AA |> copy 
+   AAc = st.AAc |> copy 
 
    # layer 1: R, T, Y -> A
    ACEcore.evalpool!(A, bipf.bA, (R, T, Y), nX)
@@ -207,7 +221,8 @@ function rrule(::typeof(_eval_inner!), bipf, R, T, Y, st, nX)
 
       # 1: pullback from A to (R, T, Y)
       ΔR, ΔT, ΔY = ACEcore._pullback_evalpool(ΔA, bipf.bA, (R, T, Y))
-      return (ZeroTangent(), ZeroTangent(), ΔR, ΔT, ΔY, ZeroTangent())
+
+      return NoTangent(), NoTangent(), ΔR, ΔT, ΔY, NoTangent(), NoTangent()
    end
 
    return AA, pb
