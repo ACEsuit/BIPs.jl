@@ -1,5 +1,4 @@
 
-
 using BIPs, Statistics, StaticArrays, Random, Test, ACEcore, Printf,
       Polynomials4ML, LinearAlgebra, LuxCore, Lux, BenchmarkTools
 using Polynomials4ML.Testing: print_tf  
@@ -16,79 +15,92 @@ X = jets[1]
 ##
 
 order = 3
-maxlevel = 6
-n_pt = 4
+maxlevel = 4
+n_pt = 3
 n_tM = 2
 n_th = 2
 n_y = 2
 
-f_bip_s = BIPs.LuxBIPs.simple_bips(; 
-            order=order, maxlevel=maxlevel, 
-            n_pt=n_pt, n_th=n_th, n_y=n_y, 
-            maxlen = maxlen)
+tB = BIPs.LuxBIPs.transverse_embedding(; n_pt = n_pt, n_tM = n_tM, maxlen=maxlen)
+θB = BIPs.LuxBIPs.angular_embedding(; n_th = n_th, maxlen=maxlen)
+yB = BIPs.LuxBIPs.y_embedding(; n_y = n_y, maxlen=maxlen)
 
-pss, sts = LuxCore.setup(rng, f_bip_s)
-Bs = f_bip_s(X, pss, sts)[1]
+f_bip = BIPs.LuxBIPs.bips(tB, θB, yB, order=order, maxlevel=maxlevel)
+
+ps, st = LuxCore.setup(rng, f_bip)
+Bs = f_bip(X, ps, st)[1]
 
 ##
 
 # try to build a BIP model using Lux layers instead of 
 # having a single layer that does all the work in-place 
 
-bR, bT, bY = f_bip_s.l.bR, f_bip_s.l.bT, f_bip_s.l.bV
+bR, bT, bY = f_bip.bR, f_bip.bT, f_bip.bV
 
 embed = BranchLayer((bR = bR, bT = bT, bY = bY))
-pool = ACEcore.lux(f_bip_s.l.bA)
-corr = ACEcore.lux(f_bip_s.l.bAA)
+pool = ACEcore.lux(f_bip.bA)
+corr = ACEcore.lux(f_bip.bAA)
 
 f_bip_l = Chain(; embed = embed, pool = pool, corr = corr, 
                   real = WrappedFunction(real) )
 
 psl, stl = LuxCore.setup(rng, f_bip_l)
+psl.embed.bR.W[:] .= ps.bR.W[:]
 Bs_l = f_bip_l(X, psl, stl)[1]
 
-
-Bs_l[2:end] ≈ Bs[2:end]
-
-##
-
-# @info("Checking performance - pretty good:")
-# @info("Manual:")
-# @btime $f_bip_s($X, $pss, $sts)
-# @info("Flux:")
-# @btime $f_bip_l($X, $psl, $stl)
+Bs_l ≈ Bs
 
 ##
 
-model_s = Chain(; bip = f_bip_s, 
-                  l1 = Dense(length(f_bip_s), 5, tanh; init_weight=randn, use_bias=false), 
-                  l2 = Dense(5, 1, tanh; init_weight=randn, use_bias=false),
-                  out = WrappedFunction(x -> x[1]), )
+tB2 = BIPs.LuxBIPs.transverse_embedding2(; n_pt = n_pt, n_tM = n_tM, maxlen=maxlen)
+f_bip_l2 = BIPs.LuxBIPs.bips2(tB2, θB, yB, order=order, maxlevel=maxlevel)
 
-model_l = Chain(; bip = f_bip_l,
-                  l1 = Dense(length(f_bip_s), 5, tanh; init_weight=randn, use_bias=false), 
+psl2, stl2 = LuxCore.setup(rng, f_bip_l2)
+psl2.embed.tB.l.bilinear.W .= psl.embed.bR.W
+Bs_l2 = f_bip_l2(X, psl2, stl2)[1]
+Bs_l2 ≈ Bs
+
+##
+
+@info("Checking performance - pretty good:")
+@info("Manual:")
+@btime $f_bip($X, $ps, $st)
+@info("Lux:")
+@btime $f_bip_l($X, $psl, $stl)
+@info("Lux2:")
+@btime $f_bip_l2($X, $psl2, $stl2)
+
+##
+
+f_bip, ps, st = f_bip_l2, psl2, stl2
+
+bip_len = length(f_bip.layers.corr.basis)
+
+model_l = Chain(; bip = f_bip,
+                  l1 = Dense(bip_len, 5, tanh; init_weight=randn, use_bias=false), 
                   l2 = Dense(5, 1, tanh; init_weight=randn, use_bias=false),
                   out = WrappedFunction(x -> x[1]), )
         
-pss, sts = LuxCore.setup(rng, model_s)
 psl, stl = LuxCore.setup(rng, model_l)
 
-model_s(X, pss, sts)[1]
 model_l(X, psl, stl)[1]
 
-gs = Zygote.gradient(ps -> model_s(X, ps, sts)[1], pss)[1]
 gl = Zygote.gradient(ps -> model_l(X, ps, stl)[1], psl)[1]
+
+##
+
+fl = ps -> model_l(X, ps, stl)[1]
+@btime Zygote.gradient($fl, $psl);
 
 
 ##
 # Finite difference test for model_s 
 
-# model, ps, st = model_s, pss, sts
 model, ps, st = model_l, psl, stl
 
 ps_vec, re = destructure(ps)
-us_vec = ( (randn(length(ps_vec)) ) # ./ (1:length(ps_vec))) 
-           .* [ (rand() < 0.1) for _=1:length(ps_vec)] )
+us_vec = ( (randn(length(ps_vec)) ) ./ (1:length(ps_vec)) ) 
+         #   .* [ (rand() < 0.1) for _=1:length(ps_vec)] )
 
 _ps(t) = re(ps_vec + t * us_vec)
 _dot(nt1::NamedTuple, nt2::NamedTuple) = dot(destructure(nt1)[1], destructure(nt2)[1])
@@ -107,3 +119,4 @@ for h in (0.1).^(1:12)
             abs(df_h2 - df0)
              )
 end
+

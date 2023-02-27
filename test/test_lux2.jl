@@ -22,7 +22,7 @@ n_tM = 2
 n_th = 2
 n_y = 2
 
-f_bip_s = BIPs.LuxBIPs.simple_bips(; 
+f_bip_s = BIPs.LuxBIPs.simple_bips2(; 
             order=order, maxlevel=maxlevel, 
             n_pt=n_pt, n_th=n_th, n_y=n_y, 
             maxlen = maxlen)
@@ -30,16 +30,18 @@ f_bip_s = BIPs.LuxBIPs.simple_bips(;
 pss, sts = LuxCore.setup(rng, f_bip_s)
 Bs = f_bip_s(X, pss, sts)[1]
 
+len_f_bip = length(f_bip_s.layers.corr)
+
 ##
 
 model = Chain(; bip = f_bip_s, 
                 norm = WrappedFunction(x -> x/1e4),
-                l1 = Dense(length(f_bip_s), 5, tanh; init_weight=randn, use_bias=false), 
+                l1 = Dense(len_f_bip, 5, tanh; init_weight=randn, use_bias=false), 
                 l2 = Dense(5, 1, tanh; init_weight=randn, use_bias=false),
                 out = WrappedFunction(x -> x[1]), 
                 )
 
-ps, st = Lux.setup(rng, model)              
+ps, st = Lux.setup(rng, model)     
 
 [ model(X, ps, st)[1] for X in jets[1:3] ]
 

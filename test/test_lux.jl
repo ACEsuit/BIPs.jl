@@ -20,7 +20,7 @@ f_bip, specs = build_ip(;
 
 f_bip_lux = BIPs.LuxBIPs.BIPbasis(f_bip)
 
-f_bip_lux_2 = BIPs.LuxBIPs.simple_bips(; 
+f_bip_lux_2 = BIPs.LuxBIPs.simple_bips2(; 
             order=order, maxlevel=maxlevel, n_pt=n_pt, n_th=n_th, n_y=n_y)
 
 ##
@@ -36,10 +36,12 @@ println()
 
 ##
 
+ps2, st2 = LuxCore.setup(MersenneTwister(1234), f_bip_lux_2)
+
 @info("conversion vs constructor")
 for X in hyp_jets[1:100]
    AA1 = f_bip_lux(X)
-   AA2 = f_bip_lux_2(X)
+   AA2 = f_bip_lux_2(X, ps2, st2)[1]
    print_tf(@test norm(AA1 - AA2, Inf) == 0.0)
 end
 println() 
@@ -55,8 +57,10 @@ X = identity.(hyp_jets[1])
 # benchmark when we pre-allocate
 rng = MersenneTwister(1234)
 ps, st = LuxCore.setup(rng, f_bip_lux)
-@btime $f_bip_lux($X, $ps, $st)
+ps2, st2 = LuxCore.setup(rng, f_bip_lux_2)
 
+@btime $f_bip_lux($X, $ps, $st)
+@btime $f_bip_lux_2($X, $ps2, $st2)
 
 ##
 

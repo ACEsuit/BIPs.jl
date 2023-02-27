@@ -100,12 +100,14 @@ struct SimpleRtMEmbedding{T, TTR, TR} <: AbstractExplicitLayer
    r_trans::TTR
    r_embed::TR
    maxlen::Int 
+   meta::Dict{String, Any}
 end
 
 Base.length(l::SimpleRtMEmbedding) = length(l.r_embed)
 
 SimpleRtMEmbedding(T, r_trans, r_embed, maxlen) = 
-      SimpleRtMEmbedding{T, typeof(r_trans), typeof(r_embed)}(r_trans, r_embed, maxlen)
+      SimpleRtMEmbedding{T, typeof(r_trans), typeof(r_embed)}(r_trans, r_embed, 
+                         maxlen, Dict{String, Any}())
 
 initialparameters(rng::AbstractRNG, l::SimpleRtMEmbedding) = 
       initialparameters(l) 
@@ -268,27 +270,36 @@ end
 function angular_embedding(; n_th = 2, maxlen = 200)
    # angular embedding 
    trig_θ = CTrigBasis(n_th)
-   inds_θ = natural_indices(trig_θ)
-   inv_θ = idx_map(trig_θ)
    bT = ConstEmbedding(Float64, ComplexF64, 
                           x -> atan(x[3], x[2]), trig_θ, maxlen)
-   bT.meta["inds"] = inds_θ
-   bT.meta["inv"] = inv_θ
+   bT.meta["info"] = "complex trig embedding of angle θ" 
+   bT.meta["inds"] = natural_indices(trig_θ)
+   bT.meta["inv"] = idx_map(trig_θ)
    return bT
 end
 
 function y_embedding(; n_y = 2, maxlen = 200)
    trig_y = CTrigBasis(n_y)
-   inds_y = natural_indices(trig_y)
-   inv_y = idx_map(trig_y)
    bY = ConstEmbedding(Float64, ComplexF64, 
                           x -> x[4], trig_y, maxlen)
-   bY.meta["inds"] = inds_y
-   bY.meta["inv"] = inv_y
+   bY.meta["info"] = "complex trig embedding of transverse momentum y" 
+   bY.meta["inds"] = natural_indices(trig_y)
+   bY.meta["inv"] = idx_map(trig_y)
    return bY                             
 end
 
-function transverse_embedding(; pt_trans = x -> (log(x[1]) + 4.7) / 6,
+function simple_transverse_embedding(; n_pt = 5, maxlen = 200, 
+                                    pt_trans = x -> (log(x[1]) + 4.7) / 6)
+   cheb = simple_chebyshev(n_pt)
+   bR = SimpleRtMEmbedding(Float64, pt_trans, cheb, maxlen)
+   bR.meta["inds"] = natural_indices(cheb)
+   bR.meta["inv"] = idx_map(cheb)
+   bR.meta["info"] = "basic original BIPs transverse momentum embedding"
+   return  bR 
+end 
+
+function transverse_embedding(; 
+                         pt_trans = x -> (log(x[1]) + 4.7) / 6,
                          n_pt = 5, 
                          tM_trans = x -> x[5], 
                          n_tM = 2, 
@@ -314,3 +325,29 @@ function transverse_embedding(; pt_trans = x -> (log(x[1]) + 4.7) / 6,
    return bT
 end
 
+function transverse_embedding2(; 
+                        pt_trans = x -> (log(x[1]) + 4.7) / 6,
+                        n_pt = 5, 
+                        tM_trans = x -> x[5], 
+                        n_tM = 2, 
+                        nmax = n_pt, 
+                        T = Float64, 
+                        maxlen = 200 )
+   # pt embedding 
+   cheb = simple_chebyshev(n_pt)
+   bR = ConstEmbedding(T, T, pt_trans, cheb, maxlen)
+   # tM embedding 
+   mono = Polynomials4ML.MonoBasis(n_tM) 
+   bM = ConstEmbedding(T, T, tM_trans, mono, maxlen)
+
+   # create a bilinear learnable map
+   len_r = length(cheb)
+   len_m = length(mono)
+   bR_l = Chain( 
+         embeddings = BranchLayer((r = bR, m = bM)), 
+         bilinear = BIPs.LuxBIPs.BatchedBilinear((len_r, len_m) => nmax), 
+         ) |> BIPs.LuxBIPs.MetaLayer
+   bR_l.meta["inds"] = 0:nmax-1
+   bR_l.meta["inv"] = Dict([i => i+1 for i = 0:nmax-1]...)
+   return bR_l 
+end
