@@ -36,31 +36,33 @@ end
 
 # ----------- a simple embedding interface 
 
-# careful, this assumes that transform and B are !not! trainable 
-# This Lux wrapper should go into ACEbase or Polynomials4ML 
-# but for now this is a convenient prototype implementation
-struct GenericEmbedding{TIN, TOUT, TT, TB} <: AbstractExplicitLayer 
+"""
+Lux wrapper for a Polynomials4ML embedding. Allows no parameters. 
+Adds a transform in front. Efficient batched evaluation. Neither transform 
+nor embedding are allowed to be trainable.
+"""
+struct ConstEmbedding{TIN, TOUT, TT, TB} <: AbstractExplicitLayer 
    transform::TT
    B::TB
    maxlen::Int 
    meta::Dict{String, Any}
 end
 
-GenericEmbedding(TIN, TOUT, transform, B, maxlen) = 
-      GenericEmbedding{TIN, TOUT, typeof(transform), typeof(B)}(
+ConstEmbedding(TIN, TOUT, transform, B, maxlen) = 
+      ConstEmbedding{TIN, TOUT, typeof(transform), typeof(B)}(
          transform, B, maxlen, Dict{String, Any}()
       )
 
-Base.length(l::GenericEmbedding) = length(l.B)
+Base.length(l::ConstEmbedding) = length(l.B)
 
-function (l::GenericEmbedding)(X, ps, st) 
+function (l::ConstEmbedding)(X, ps, st) 
    P = ignore_derivatives() do
-      _eval(l::GenericEmbedding, X, ps, st)
+      _eval(l::ConstEmbedding, X, ps, st)
    end
    return P, st 
 end
 
-function _eval(l::GenericEmbedding, X, ps, st) 
+function _eval(l::ConstEmbedding, X, ps, st) 
    nX = length(X) 
    x = @view st.x[1:nX]
    P = @view st.P[1:nX, :]
@@ -76,16 +78,16 @@ function _eval(l::GenericEmbedding, X, ps, st)
    return P 
 end
 
-initialparameters(rng::AbstractRNG, l::GenericEmbedding) = 
+initialparameters(rng::AbstractRNG, l::ConstEmbedding) = 
       initialparameters(l) 
 
-initialparameters(l::GenericEmbedding) = 
+initialparameters(l::ConstEmbedding) = 
          NamedTuple() 
 
-initialstates(rng::AbstractRNG, l::GenericEmbedding) = 
+initialstates(rng::AbstractRNG, l::ConstEmbedding) = 
          initialstates(l) 
 
-initialstates(l::GenericEmbedding{TIN, TOUT}) where {TIN, TOUT} = (
+initialstates(l::ConstEmbedding{TIN, TOUT}) where {TIN, TOUT} = (
          x = Vector{TIN}(undef, l.maxlen), 
          P = Matrix{TOUT}(undef, l.maxlen, length(l.B))
       )
@@ -268,7 +270,7 @@ function angular_embedding(; n_th = 2, maxlen = 200)
    trig_θ = CTrigBasis(n_th)
    inds_θ = natural_indices(trig_θ)
    inv_θ = idx_map(trig_θ)
-   bT = GenericEmbedding(Float64, ComplexF64, 
+   bT = ConstEmbedding(Float64, ComplexF64, 
                           x -> atan(x[3], x[2]), trig_θ, maxlen)
    bT.meta["inds"] = inds_θ
    bT.meta["inv"] = inv_θ
@@ -279,7 +281,7 @@ function y_embedding(; n_y = 2, maxlen = 200)
    trig_y = CTrigBasis(n_y)
    inds_y = natural_indices(trig_y)
    inv_y = idx_map(trig_y)
-   bY = GenericEmbedding(Float64, ComplexF64, 
+   bY = ConstEmbedding(Float64, ComplexF64, 
                           x -> x[4], trig_y, maxlen)
    bY.meta["inds"] = inds_y
    bY.meta["inv"] = inv_y
@@ -297,13 +299,13 @@ function transverse_embedding(; pt_trans = x -> (log(x[1]) + 4.7) / 6,
    cheb = simple_chebyshev(n_pt)
    inds_pt = natural_indices(cheb)
    inv_pt = idx_map(cheb)
-   bR = GenericEmbedding(T, T, pt_trans, cheb, maxlen)
+   bR = ConstEmbedding(T, T, pt_trans, cheb, maxlen)
 
    # tM embedding 
    mono = Polynomials4ML.MonoBasis(n_tM) 
    inds_tM = natural_indices(mono)
    inv_tM = idx_map(mono)
-   bM = GenericEmbedding(T, T, tM_trans, mono, maxlen)
+   bM = ConstEmbedding(T, T, tM_trans, mono, maxlen)
       
    bT = RtMEmbedding(T, bR, bM, nmax, maxlen=maxlen)
    bT.meta["inds"] = 0:nmax-1 

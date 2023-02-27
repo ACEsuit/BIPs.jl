@@ -7,6 +7,8 @@ hyp_jets = sample_hyp_jets
 
 ##
 
+@info("Testing Compatibility of Lux Bips with Original BIPs")
+
 order = 3
 maxlevel = 6
 n_pt = 4

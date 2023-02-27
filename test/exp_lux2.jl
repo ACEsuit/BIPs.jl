@@ -13,6 +13,8 @@ X = jets[1]
 
 ##
 
+@info("Testing Gradient of simple_bips")
+
 order = 3
 maxlevel = 3
 n_pt = 3

@@ -83,7 +83,7 @@ end
 
 function convert_θ_basis(bT::Union{TrigBasis, TrigBasisNA}, maxlen) 
    Bnew = CTrigBasis(bT.maxL)
-   l = GenericEmbedding(Float64, ComplexF64, 
+   l = ConstEmbedding(Float64, ComplexF64, 
             x -> atan(x[3], x[2]),
             Bnew, 
             maxlen
@@ -93,7 +93,7 @@ end
 
 function convert_y_basis(bT::Union{TrigBasis, TrigBasisNA}, maxlen) 
    Bnew = CTrigBasis(bT.maxL)
-   l = GenericEmbedding(Float64, ComplexF64, 
+   l = ConstEmbedding(Float64, ComplexF64, 
             x -> x[4], 
             Bnew, 
             maxlen
@@ -243,14 +243,14 @@ function simple_bips(; order = 3, maxlevel = 6, n_pt = 5, n_th = 3, n_y = 3,
    trig_θ = CTrigBasis(n_th)
    inds_θ = natural_indices(trig_θ)
    inv_θ = idx_map(trig_θ)
-   bT = GenericEmbedding(Float64, ComplexF64, 
+   bT = ConstEmbedding(Float64, ComplexF64, 
                           x -> atan(x[3], x[2]), trig_θ, maxlen)
 
    # y embedding 
    trig_y = CTrigBasis(n_y)
    inds_y = natural_indices(trig_y)
    inv_y = idx_map(trig_y)
-   bY = GenericEmbedding(Float64, ComplexF64, 
+   bY = ConstEmbedding(Float64, ComplexF64, 
                           x -> x[4], trig_y, maxlen)
 
    # generate a specification 
