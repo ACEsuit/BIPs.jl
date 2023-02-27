@@ -66,8 +66,8 @@ model = Chain(; bip = f_bip_lux,
                 l3 = Dense(10, 1) )
 
 # for some reason, this chain uses F32 for intermediate operations 
-# I don't know how to turn this off. Another reason to write out 
-# own layers
+# there seems no obvious way to switch for F64 expcept to 
+# specify randn for the initialisation of weights - to be discussed?!
 
 rng = MersenneTwister(1234)
 ps, st = Lux.setup(rng, model)              

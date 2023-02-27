@@ -18,7 +18,7 @@ end
 Base.length(l::ConstL) = length(l.l)
 
 initialparameters(rng::AbstractRNG, l::ConstL) = 
-      (l = initialparameters(l.l), ) 
+      (l = initialparameters(rng, l.l), )
 
 initialstates(rng::AbstractRNG, l::ConstL) = 
       (l = initialstates(rng, l.l), )
@@ -29,9 +29,12 @@ function (l::ConstL)(x, ps, st)
    end
 end
 
+(l::ConstL)(x) = 
+      l(x, initialparameters(Random.GLOBAL_RNG, l), 
+           initialstates(Random.GLOBAL_RNG, l) )[1]
+
 
 # ----------- a simple embedding interface 
-#             so that We can make learnable embeddings; cf below 
 
 # careful, this assumes that transform and B are !not! trainable 
 # This Lux wrapper should go into ACEbase or Polynomials4ML 
@@ -208,7 +211,7 @@ function (l::RtMEmbedding{T})(X::AbstractVector{<: SVector}, ps, st) where {T}
    return P, st 
 end
 
-## ---------------- Alternative to Bilinear 
+## ---------------- Varaint of Lux.Bilinear suitable for ACE
 
 struct BatchedBilinear <: AbstractExplicitLayer
    nin1::Int 
@@ -245,11 +248,8 @@ end
 
 # function rrule(::typeof(_eval), l::BatchedBilinear, RM::Tuple, W, st)
 #    P = _eval(l, RM, W, st)
-#    @show "here"
 
 #    function _eval_pullback(ΔP)
-#       @show "and here too"
-#       @show ΔP 
 #       @tullio ΔR[i, k1] := W[n, k1, k2] * M[i, k2] * ΔP[i, n]
 #       @tullio ΔM[i, k2] := W[n, k1, k2] * R[i, k1] * ΔP[i, n]
 #       return NoTangent(), NoTangent(), (ΔR, ΔM), NoTangent()

@@ -113,9 +113,8 @@ end
 function convert_AA_spec(f_bip)
    AA_spec = f_bip.spec
    AA_ords = f_bip.ords
-   spec = [ [AA_spec[i, k] for i = 1:AA_ords[k]] for k in 2:size(AA_spec, 2) ]
+   spec = [ [AA_spec[i, k] for i = 1:AA_ords[k]] for k in 1:size(AA_spec, 2) ]
    spec = sort.(spec)
-   spec = [ [spec[1],]; spec ]  # duplicate the first feature; this is a [hack] explained below 
    return ACEcore.SparseSymmProd(spec; T = ComplexF64)
 end
 
@@ -161,8 +160,7 @@ function _eval_inner!(bipf, R, T, Y, st, nX)
 
    # this circumvents a performance bug in ACEcore 
    ACEcore.evaluate!(AAc, bipf.bAA.dag, A)
-   AA[1] = 1  # [hack]  ACEcore doesn't allow the constant basis function :(
-   @inbounds @simd ivdep for i = 2:length(bipf.bAA)
+   @inbounds @simd ivdep for i = 1:length(bipf.bAA)
       AA[i] = real(AAc[bipf.bAA.proj[i]])
    end
 
@@ -172,20 +170,11 @@ end
 
 function (bipf::BIPbasis)(X::AbstractVector{<: SVector}, ps::NamedTuple, st::NamedTuple)
    AA = _eval!(bipf, X, ps, st)
-   # AA = ignore_derivatives() do 
-   #    _eval!(bipf, X, ps, st)
-   # end
    return AA, st 
 end
 
 
 import ChainRulesCore: rrule, NoTangent, ZeroTangent, NoTangent
-
-# function rrule(::typeof(_eval_inner!), bipf::BIPbasis{false}, R_, T_, Y_, st, nX)
-#    AA = _eval_inner!(bipf, R_, T_, Y_, st, nX)
-#    return AA, Δ -> (NoTangent(), NoTangent(), NoTangent(), NoTangent(), NoTangent(), NoTangent())
-# end
-
 
 function rrule(::typeof(_eval_inner!), bipf::BIPbasis, R_, T_, Y_, st, nX)
    R = copy(collect(R_)) 
@@ -200,12 +189,10 @@ function rrule(::typeof(_eval_inner!), bipf::BIPbasis, R_, T_, Y_, st, nX)
 
    # layer 2: A -> AAc 
    ACEcore.evaluate!(AAc, bipf.bAA.dag, A)
-   AAc[1] = 1  # [hack]  ACEcore doesn't allow the constant basis function :(
    map!(real, AAc, AAc)
 
    # layer 3: AAc -> AA
-   AA[1] = 1 
-   @inbounds @simd ivdep for i = 2:length(bipf.bAA)
+   @inbounds @simd ivdep for i = 1:length(bipf.bAA)
       AA[i] = real(AAc[bipf.bAA.proj[i]])
    end
 
@@ -213,7 +200,6 @@ function rrule(::typeof(_eval_inner!), bipf::BIPbasis, R_, T_, Y_, st, nX)
       # 3: pullback from AA to AAc 
       ΔAAc = zeros(ComplexF64, length(st.AAc))
       ΔAAc[bipf.bAA.proj] = ΔAA
-      ΔAAc[1] = 0.0  
 
       # 2: pullback from AAc to A
       ΔA = zeros(ComplexF64, size(st.A))
@@ -278,11 +264,6 @@ function simple_bips(; order = 3, maxlevel = 6, n_pt = 5, n_th = 3, n_y = 3,
    bA = PooledSparseProduct{3}(spec_A_2)
 
    # ... and the AA basis 
-   @assert length(spec_AA[1]) == 0 
-   # replace this one with a duplicate, this is a hack needed because 
-   # the current AA basis evaluator doesn't admit, this is fixed in the 
-   # evaluator code. 
-   spec_AA[1] = copy(spec_AA[2])
    spec_AA = sort.(spec_AA)   
    bAA = SparseSymmProd(spec_AA; T = ComplexF64)
 
@@ -311,12 +292,6 @@ function bips(tB, θB, yB; order = 3, maxlevel = 6, maxlen = 200)
    bA = PooledSparseProduct{3}(spec_A_2)
 
    # ... and the AA basis 
-   @assert length(spec_AA[1]) == 0 
-   # replace this one with a duplicate, this is a hack needed because 
-   # the current AA basis evaluator doesn't admit, this is fixed in the 
-   # evaluator code. 
-   spec_AA[1] = copy(spec_AA[2])
-   spec_AA = sort.(spec_AA)   
    bAA = SparseSymmProd(spec_AA; T = ComplexF64)
 
    # put it all together 
