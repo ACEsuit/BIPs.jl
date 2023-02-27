@@ -208,6 +208,57 @@ function (l::RtMEmbedding{T})(X::AbstractVector{<: SVector}, ps, st) where {T}
    return P, st 
 end
 
+## ---------------- Alternative to Bilinear 
+
+struct BatchedBilinear <: AbstractExplicitLayer
+   nin1::Int 
+   nin2::Int 
+   nout::Int
+   meta::Dict{String, Any}
+end
+
+function BatchedBilinear(dims::Pair{<: Tuple, <: Integer})
+   nin = dims[1] 
+   nout = dims[2]
+   @assert length(nin) == 2
+   nin1, nin2 = nin  
+   return BatchedBilinear(nin1, nin2, nout, Dict{String, Any}())
+end
+
+
+function initialparameters(rng::AbstractRNG, l::BatchedBilinear)
+   dims = (l.nout, l.nin1, l.nin2)
+   W = Float64.( glorot_normal(rng, dims...) )
+   return ( W=W,  )
+end
+       
+initialstates(rng::AbstractRNG, l::BatchedBilinear) = NamedTuple() 
+
+(l::BatchedBilinear)(RM::Tuple, ps, st) = _eval(l, RM, ps.W, st), st 
+
+function _eval(l::BatchedBilinear, RM::Tuple, W, st)
+   @assert length(RM) == 2 
+   R, M = RM 
+   @tullio P[i, n] := W[n, k1, k2] * R[i, k1] * M[i, k2]
+   return P
+end
+
+function rrule(::typeof(_eval), l::BatchedBilinear, RM::Tuple, W, st)
+   P = _eval(l, RM, W, st)
+   @show "here"
+
+   function _eval_pullback(ΔP)
+      @show "and here too"
+      @show ΔP 
+      @tullio ΔR[i, k1] := W[n, k1, k2] * M[i, k2] * ΔP[i, n]
+      @tullio ΔM[i, k2] := W[n, k1, k2] * R[i, k1] * ΔP[i, n]
+      return NoTangent(), NoTangent(), (ΔR, ΔM), NoTangent()
+   end
+
+   return P, _eval_pullback
+end
+
+
 
 # ------------------ convenience constructors
 
