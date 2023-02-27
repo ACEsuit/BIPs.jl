@@ -60,7 +60,7 @@ end
 function _eval(l::GenericEmbedding, X, ps, st) 
    nX = length(X) 
    x = @view st.x[1:nX]
-   P = st.P 
+   P = @view st.P[1:nX, :]
    @assert length(x) >= nX
    @assert size(P, 1) >= nX
 
@@ -128,7 +128,7 @@ function _eval(l::SimpleRtMEmbedding, X, ps, st)
    nX = length(X) 
    r = @view st.r[1:nX]
    tM = st.tM 
-   R = st.R 
+   R = @view st.R[1:nX, :]
    @assert size(R, 1) >= nX 
    @assert length(r) >= nX 
    @assert length(tM) >= nX 
