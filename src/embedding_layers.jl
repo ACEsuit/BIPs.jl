@@ -1,6 +1,43 @@
 
 using ChainRules: ignore_derivatives
 using Random 
+using Tullio
+using Lux: glorot_normal
+
+# --------------  
+# some useful auxiliary functions 
+
+function inv_collection(a)
+   ia = Dict{eltype(a), Int}()
+   for (i, ai) in enumerate(a)
+      ia[ai] = i 
+   end
+   return ia 
+end
+
+function idx_map(basis)
+   a = natural_indices(basis)
+   ia = Dict{eltype(a), Int}() 
+   for ai in a
+      ia[ai] = Polynomials4ML.index(basis, ai)
+   end
+   return ia 
+end
+
+
+# ----- 
+# the standard chebyshev basis, this should probably 
+# go into Polynomials4ML.jl
+
+function simple_chebyshev(maxn)
+   cheb = chebyshev_basis(maxn+1)
+   cheb.A[1:2] .= 1.0 
+   cheb.A[3:end] .= 2 
+   cheb.B[:] .= 0.0 
+   cheb.C[:] .= -1.0 
+   return cheb
+end
+
 
 # ----------- a simple wrapper that just says the layers inside not trainable 
 #
@@ -165,58 +202,8 @@ function _eval(l::SimpleRtMEmbedding, X, ps, st)
 end
 
 
-# ----------------- a basic learnable embedding 
-#  ... of the form 
-#   Rk = ∑_k' W_{kk'} R0_{k'}
-
-using LuxCore: AbstractExplicitContainerLayer
-using Tullio: @tullio
-using Lux: glorot_normal
-
-struct RtMEmbedding{T, TR, TM} <: AbstractExplicitContainerLayer{(:r_embed, :m_embed)}
-   r_embed::TR
-   m_embed::TM
-   nmax::Int
-   maxlen::Int 
-   meta::Dict{String, Any}
-end
-
-RtMEmbedding(T, r_embed::TR, m_embed::TM, nmax::Integer; 
-             maxlen=200)  where {TR, TM} =  
-      RtMEmbedding{T, TR, TM}(r_embed, m_embed, nmax, maxlen, Dict{String, Any}())
-
-function initialparameters(rng::AbstractRNG, l::RtMEmbedding{T}) where {T} 
-   dims = (l.nmax, length(l.r_embed), length(l.m_embed))
-   W = T.( glorot_normal(rng, dims...) )
-   return ( W=W, 
-            r_embed = initialparameters(l.r_embed),
-            m_embed = initialparameters(l.m_embed) )
-end
-
-initialparameters(l::RtMEmbedding)  = 
-      initialparameters(Random.GLOBAL_RNG, l) 
-       
-initialstates(rng::AbstractRNG, l::RtMEmbedding) = 
-                  ( r_embed = initialstates(rng, l.r_embed),
-                    m_embed = initialstates(rng, l.m_embed) )
-
-initialstates(l::RtMEmbedding) = initialstates(Random.GLOBAL_RNG, l)
-
-function (l::RtMEmbedding{T})(X::AbstractVector{<: SVector}, ps, st) where {T} 
-   nX = length(X)
-   @assert nX <= l.maxlen
-   R, _ = l.r_embed(X, ps.r_embed, st.r_embed)
-   R_ = @view R[1:nX, :]
-   M, _ = l.m_embed(X, ps.m_embed, st.m_embed)
-   M_ = @view M[1:nX, :]
-   P, _ = Matrix{T}(undef, length(X), l.nmax)
-   @tullio P[i, n] := ps.W[n, k1, k2] * R_[i, k1] * M_[i, k2]
-   # here we can release R, M
-   return P, st 
-end
-
 ## ---------------- Varaint of Lux.Bilinear suitable for ACE
-
+# needed for the embedding of pt and tM 
 struct BatchedBilinear <: AbstractExplicitLayer
    nin1::Int 
    nin2::Int 
@@ -250,6 +237,8 @@ function _eval(l::BatchedBilinear, RM::Tuple, W, st)
    return P
 end
 
+# we could bring in this rrule. But no rush 
+# let's first benchmark properly and find the bottlenecks 
 # function rrule(::typeof(_eval), l::BatchedBilinear, RM::Tuple, W, st)
 #    P = _eval(l, RM, W, st)
 
@@ -264,7 +253,8 @@ end
 
 
 
-# ------------------ convenience constructors
+# ------------------ convenience constructors 
+# for various embeddings 
 
 
 function angular_embedding(; n_th = 2, maxlen = 200)
@@ -299,33 +289,6 @@ function simple_transverse_embedding(; n_pt = 5, maxlen = 200,
 end 
 
 function transverse_embedding(; 
-                         pt_trans = x -> (log(x[1]) + 4.7) / 6,
-                         n_pt = 5, 
-                         tM_trans = x -> x[5], 
-                         n_tM = 2, 
-                         nmax = n_pt, 
-                         T = Float64, 
-                         maxlen = 200 )
-   # pt embedding 
-   cheb = simple_chebyshev(n_pt)
-   inds_pt = natural_indices(cheb)
-   inv_pt = idx_map(cheb)
-   bR = ConstEmbedding(T, T, pt_trans, cheb, maxlen)
-
-   # tM embedding 
-   mono = Polynomials4ML.MonoBasis(n_tM) 
-   inds_tM = natural_indices(mono)
-   inv_tM = idx_map(mono)
-   bM = ConstEmbedding(T, T, tM_trans, mono, maxlen)
-      
-   bT = RtMEmbedding(T, bR, bM, nmax, maxlen=maxlen)
-   bT.meta["inds"] = 0:nmax-1 
-   bT.meta["inv"] = Dict([i => i+1 for i = 0:nmax-1]...)
-
-   return bT
-end
-
-function transverse_embedding2(; 
                         pt_trans = x -> (log(x[1]) + 4.7) / 6,
                         n_pt = 5, 
                         tM_trans = x -> x[5], 

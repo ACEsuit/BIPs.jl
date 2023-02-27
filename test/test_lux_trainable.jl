@@ -7,9 +7,6 @@ using Lux, Optimisers, Zygote
 rng = Random.GLOBAL_RNG
 
 include("testing_tools.jl")
-hyp_jets = sample_hyp_jets
-jets = [ identity.(jet) for jet in hyp_jets ]
-maxlen = maximum(length, jets)
 X = jets[1]
 
 ##
@@ -32,49 +29,7 @@ Bs = f_bip(X, ps, st)[1]
 
 ##
 
-# try to build a BIP model using Lux layers instead of 
-# having a single layer that does all the work in-place 
-
-bR, bT, bY = f_bip.bR, f_bip.bT, f_bip.bV
-
-embed = BranchLayer((bR = bR, bT = bT, bY = bY))
-pool = ACEcore.lux(f_bip.bA)
-corr = ACEcore.lux(f_bip.bAA)
-
-f_bip_l = Chain(; embed = embed, pool = pool, corr = corr, 
-                  real = WrappedFunction(real) )
-
-psl, stl = LuxCore.setup(rng, f_bip_l)
-psl.embed.bR.W[:] .= ps.bR.W[:]
-Bs_l = f_bip_l(X, psl, stl)[1]
-
-Bs_l ≈ Bs
-
-##
-
-tB2 = BIPs.LuxBIPs.transverse_embedding2(; n_pt = n_pt, n_tM = n_tM, maxlen=maxlen)
-f_bip_l2 = BIPs.LuxBIPs.bips2(tB2, θB, yB, order=order, maxlevel=maxlevel)
-
-psl2, stl2 = LuxCore.setup(rng, f_bip_l2)
-psl2.embed.tB.l.bilinear.W .= psl.embed.bR.W
-Bs_l2 = f_bip_l2(X, psl2, stl2)[1]
-Bs_l2 ≈ Bs
-
-##
-
-@info("Checking performance - pretty good:")
-@info("Manual:")
-@btime $f_bip($X, $ps, $st)
-@info("Lux:")
-@btime $f_bip_l($X, $psl, $stl)
-@info("Lux2:")
-@btime $f_bip_l2($X, $psl2, $stl2)
-
-##
-
-f_bip, ps, st = f_bip_l2, psl2, stl2
-
-bip_len = length(f_bip.layers.corr.basis)
+bip_len = length(f_bip.layers.corr)
 
 model_l = Chain(; bip = f_bip,
                   l1 = Dense(bip_len, 5, tanh; init_weight=randn, use_bias=false), 

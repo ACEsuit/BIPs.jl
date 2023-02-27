@@ -6,9 +6,6 @@ using Lux, Optimisers, Zygote
 rng = MersenneTwister(1234)
 
 include("testing_tools.jl")
-hyp_jets = sample_hyp_jets
-jets = [ identity.(jet) for jet in hyp_jets ]
-maxlen = maximum(length, jets)
 X = jets[1]
 
 ##
@@ -22,7 +19,7 @@ n_tM = 2
 n_th = 2
 n_y = 2
 
-f_bip_s = BIPs.LuxBIPs.simple_bips2(; 
+f_bip_s = BIPs.LuxBIPs.simple_bips(; 
             order=order, maxlevel=maxlevel, 
             n_pt=n_pt, n_th=n_th, n_y=n_y, 
             maxlen = maxlen)
@@ -30,10 +27,9 @@ f_bip_s = BIPs.LuxBIPs.simple_bips2(;
 pss, sts = LuxCore.setup(rng, f_bip_s)
 Bs = f_bip_s(X, pss, sts)[1]
 
-len_f_bip = length(f_bip_s.layers.corr)
-
 ##
 
+len_f_bip = length(f_bip_s.layers.corr)
 model = Chain(; bip = f_bip_s, 
                 norm = WrappedFunction(x -> x/1e4),
                 l1 = Dense(len_f_bip, 5, tanh; init_weight=randn, use_bias=false), 
