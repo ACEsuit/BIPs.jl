@@ -243,20 +243,20 @@ function _eval(l::BatchedBilinear, RM::Tuple, W, st)
    return P
 end
 
-function rrule(::typeof(_eval), l::BatchedBilinear, RM::Tuple, W, st)
-   P = _eval(l, RM, W, st)
-   @show "here"
+# function rrule(::typeof(_eval), l::BatchedBilinear, RM::Tuple, W, st)
+#    P = _eval(l, RM, W, st)
+#    @show "here"
 
-   function _eval_pullback(ΔP)
-      @show "and here too"
-      @show ΔP 
-      @tullio ΔR[i, k1] := W[n, k1, k2] * M[i, k2] * ΔP[i, n]
-      @tullio ΔM[i, k2] := W[n, k1, k2] * R[i, k1] * ΔP[i, n]
-      return NoTangent(), NoTangent(), (ΔR, ΔM), NoTangent()
-   end
+#    function _eval_pullback(ΔP)
+#       @show "and here too"
+#       @show ΔP 
+#       @tullio ΔR[i, k1] := W[n, k1, k2] * M[i, k2] * ΔP[i, n]
+#       @tullio ΔM[i, k2] := W[n, k1, k2] * R[i, k1] * ΔP[i, n]
+#       return NoTangent(), NoTangent(), (ΔR, ΔM), NoTangent()
+#    end
 
-   return P, _eval_pullback
-end
+#    return P, _eval_pullback
+# end
 
 
 

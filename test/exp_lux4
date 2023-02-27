@@ -108,8 +108,8 @@ fl = ps -> model_l(X, ps, stl)[1]
 model, ps, st = model_l, psl, stl
 
 ps_vec, re = destructure(ps)
-us_vec = ( (randn(length(ps_vec)) ) # ./ (1:length(ps_vec))) 
-           .* [ (rand() < 0.1) for _=1:length(ps_vec)] )
+us_vec = ( (randn(length(ps_vec)) ) ./ (1:length(ps_vec)) ) 
+         #   .* [ (rand() < 0.1) for _=1:length(ps_vec)] )
 
 _ps(t) = re(ps_vec + t * us_vec)
 _dot(nt1::NamedTuple, nt2::NamedTuple) = dot(destructure(nt1)[1], destructure(nt2)[1])
