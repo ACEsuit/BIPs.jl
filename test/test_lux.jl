@@ -90,9 +90,9 @@ end
 loss(model, ps, st, data)
 print("Time loss: "); 
 @time loss(model, ps, st, data)
+@time loss(model, ps, st, data)
 
-
-opt = Optimisers.ADAM(0.001)
+opt = Optimisers.Adam(0.001)
 train_state = Lux.Training.TrainState(rng, model, opt)
 vjp = Lux.Training.ZygoteVJP()
 
@@ -101,6 +101,7 @@ gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
 # the timing is actually quite good. Maybe no need to worry about 
 # Enzyme for now.
 print("Time grad: "); 
+@time gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
 @time gs, l, _, ts = Lux.Training.compute_gradients(vjp, loss, data, train_state)
 
 # via the same kind of mechanism one can now use the Lux training machinery

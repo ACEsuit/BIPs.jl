@@ -40,7 +40,7 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-ACEcore = "0.0.2"
+ACEcore = "0.0.3"
 BenchmarkTools = "1"
 EvalMetrics = "0.2"
 H5Zblosc = "0.1"
@@ -52,12 +52,12 @@ JSON = "0.21"
 MultivariateStats = "0.9, 0.10"
 NPZ = "0.4"
 OffsetArrays = "1"
-Polynomials4ML = "0.0.3"
+Polynomials4ML = "0.0.4"
 PyCall = "1"
 Reexport = "1"
 StaticArrays = "1"
 YAML = "0.4"
-julia = "1.7"
+julia = "1.8"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
