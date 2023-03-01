@@ -22,27 +22,34 @@ end
    # make them type-stable 
    jets = [ identity.(X) for X in hyp_jets ]
    labels = identity.(sample_labels)
+   maxlen = maximum(length, jets)
 
    # need to initialize a rng 
    rng = MersenneTwister(1234)
+   n_pt = 4; n_tM = 2; n_th = 2; n_y = 2; order = 3; maxlevel = 6;
+   nmax = 4
 
-   f_bip, specs = build_ip(order=3,
-         levels=6,
-         n_pt=4,
-         n_th=2,
-         n_y=2)
+   # our old standard BIP embedding 
+   # f_bip = BIPs.LuxBIPs.simple_bips(; order=order, maxlevel=maxlevel, 
+   #                                    n_pt=n_pt, n_th=n_th, n_y=n_y)
 
-   f_bip_lux = BIPs.LuxBIPs.BIPbasis(f_bip)
+   # or with learnable transverse embedding: 
+   tB = BIPs.LuxBIPs.transverse_embedding(; n_pt = n_pt, n_tM = n_tM, nmax=nmax, maxlen=maxlen)
+   θB = BIPs.LuxBIPs.angular_embedding(; n_th = n_th, maxlen=maxlen)
+   yB = BIPs.LuxBIPs.y_embedding(; n_y = n_y, maxlen=maxlen)
+   f_bip = BIPs.LuxBIPs.bips(tB, θB, yB, order=order, maxlevel=maxlevel)
 
-   model = Chain(; bip = f_bip_lux, 
-                  hidden1 = Dense(length(f_bip_lux), 10, tanh), 
+   len_bip = length(f_bip.layers.corr)
+
+   model = Chain(; bip = f_bip, 
+                  hidden1 = Dense(len_bip, 10, tanh), 
                   hidden2 = Dense(10, 10, tanh), 
                   readout = Dense(10, 1, tanh), 
                   tonum = WrappedFunction(x -> (1+x[1])/2) )
 
-   ps, st = Lux.setup(rng, model)              
+   ps, st = Lux.setup(rng, model)
    model(jets[1], ps, st)[1]
-end 
+end
 
 ##
 # fix subsets of data on each worker 

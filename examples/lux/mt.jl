@@ -19,16 +19,24 @@ rng = MersenneTwister(1234)
 
 ##
 
-f_bip, specs = build_ip(order=3,
-      levels=6,
-      n_pt=4,
-      n_th=2,
-      n_y=2)
+n_pt = 4; n_th = 2; n_y = 2; order = 3; maxlevel = 6;
+n_tM = 2; nmax = 4
 
-f_bip_lux = BIPs.LuxBIPs.BIPbasis(f_bip)
 
-model = Chain(; bip = f_bip_lux, 
-                hidden1 = Dense(length(f_bip_lux), 10, tanh), 
+# our old standard BIP embedding 
+# f_bip = BIPs.LuxBIPs.simple_bips(; order=order, maxlevel=maxlevel, 
+#                                    n_pt=n_pt, n_th=n_th, n_y=n_y)
+
+# or with learnable transverse embedding: 
+tB = BIPs.LuxBIPs.transverse_embedding(; n_pt = n_pt, n_tM = n_tM, nmax=nmax, maxlen=maxlen)
+θB = BIPs.LuxBIPs.angular_embedding(; n_th = n_th, maxlen=maxlen)
+yB = BIPs.LuxBIPs.y_embedding(; n_y = n_y, maxlen=maxlen)
+f_bip = BIPs.LuxBIPs.bips(tB, θB, yB, order=order, maxlevel=maxlevel)
+
+len_bip = length(f_bip.layers.corr)
+
+model = Chain(; bip = f_bip, 
+                hidden1 = Dense(len_bip, 10, tanh), 
                 hidden2 = Dense(10, 10, tanh), 
                 readout = Dense(10, 1, tanh), 
                 tonum = WrappedFunction(x -> (1+x[1])/2) )
@@ -113,11 +121,11 @@ function mt_main(tstate, vjp, data, epochs)
 end
 
 opt = Optimisers.ADAM(0.001)
-tstate = Lux.Training.TrainState(rng, model, opt)
+# tstate = Lux.Training.TrainState(rng, model, opt)
 vjp = Lux.Training.ZygoteVJP()
 
 # take 10 training steps
-@time tstate = mt_main(tstate, vjp, data, 100)
+@time tstate = mt_main(tstate, vjp, data, 1_000)
 
 # trained parameters:
 ps_opt = tstate.parameters
