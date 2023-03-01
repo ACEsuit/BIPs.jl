@@ -12,3 +12,6 @@ function bip_data(dataset_jets)
    end
    storage
 end
+
+jets = [ identity.(jet) for jet in sample_hyp_jets ]
+maxlen = maximum(length, jets)
