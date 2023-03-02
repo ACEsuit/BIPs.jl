@@ -1,7 +1,7 @@
 name = "BIPs"
 uuid = "76fa5280-f995-49fd-9918-e917225eb296"
 authors = ["Jose M Munoz <munozariasjm@gmail.com>", "Christoph Ortner <christophortner0@gmail.com>"]
-version = "0.0.2"
+version = "0.0.3"
 
 [deps]
 ACEcore = "44c1e890-45d1-48ea-94d6-c2ea5b573f71"
