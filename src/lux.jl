@@ -96,5 +96,43 @@ function bips(tB, θB, yB; order = 3, maxlevel = 6)
 end
 
 
+
+# ----------------- Extract human-readable specification 
+
+function get_embedding_spec(l)
+   invi = l.meta["inv"]
+   @show invi 
+   spec = Vector{Any}(undef, length(invi))
+   for k in keys(invi) 
+      spec[invi[k]] = k
+   end
+   return identity.(spec)
+end      
+
+
+function get_1p_spec(bip)
+   tB = bip.layers.embed.layers.tB   # n
+   t_spec = get_embedding_spec(tB)
+   yB = bip.layers.embed.layers.yB   # k 
+   y_spec = get_embedding_spec(yB)
+   θB = bip.layers.embed.layers.θB   # l 
+   θ_spec = get_embedding_spec(θB)
+
+   spec_A_ = bip.layers.pool.basis.spec
+   spec_A = [ (n = t_spec[b[1]], l = θ_spec[b[2]], k = y_spec[b[3]]) for b in spec_A_ ]
+
+   return spec_A
+end
+
+function get_bip_spec(bip)
+   spec_A = get_1p_spec(bip)
+   spec_AA_ = ACEcore.reconstruct_spec(bip.layers.corr.basis)
+   spec_AA = [ (length(bb) == 0 ? Vector{eltype(spec_A)}(undef, 0) 
+                               :  [ spec_A[bb[i]] for i = 1:length(bb) ] )
+              for bb in spec_AA_]
+   return spec_AA            
+end
+
+
 end
 

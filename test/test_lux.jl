@@ -36,6 +36,11 @@ for X in jets[1:100]
 end
 println() 
 
+##
+
+@info("checkout the human-readable spec")
+spec_A = BIPs.LuxBIPs.get_1p_spec(f_bip_lux)
+spec_AA = BIPs.LuxBIPs.get_bip_spec(f_bip_lux)
 
 ##
 
