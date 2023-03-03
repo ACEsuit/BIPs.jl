@@ -41,6 +41,9 @@ println()
 @info("checkout the human-readable spec")
 spec_A = BIPs.LuxBIPs.get_1p_spec(f_bip_lux)
 spec_AA = BIPs.LuxBIPs.get_bip_spec(f_bip_lux)
+display(spec_AA[1:10]) 
+println("...")
+display(spec_AA[end-5:end])
 
 ##
 

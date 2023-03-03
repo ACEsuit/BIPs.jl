@@ -101,7 +101,6 @@ end
 
 function get_embedding_spec(l)
    invi = l.meta["inv"]
-   @show invi 
    spec = Vector{Any}(undef, length(invi))
    for k in keys(invi) 
       spec[invi[k]] = k
