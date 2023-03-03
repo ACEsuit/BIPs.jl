@@ -53,7 +53,7 @@ end
 
 loss(model, ps, st, data)
 
-opt = Optimisers.ADAM(0.001)
+opt = Optimisers.Adam(0.001)
 train_state = Lux.Training.TrainState(rng, model, opt)
 vjp = Lux.Training.ZygoteVJP()
 

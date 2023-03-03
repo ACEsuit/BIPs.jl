@@ -1,7 +1,7 @@
 name = "BIPs"
 uuid = "76fa5280-f995-49fd-9918-e917225eb296"
 authors = ["Jose M Munoz <munozariasjm@gmail.com>", "Christoph Ortner <christophortner0@gmail.com>"]
-version = "0.0.4"
+version = "0.0.5"
 
 [deps]
 ACEcore = "44c1e890-45d1-48ea-94d6-c2ea5b573f71"
@@ -40,7 +40,7 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-ACEcore = "0.0.3"
+ACEcore = "0.0.4"
 BenchmarkTools = "1"
 EvalMetrics = "0.2"
 H5Zblosc = "0.1"
@@ -52,7 +52,7 @@ JSON = "0.21"
 MultivariateStats = "0.9, 0.10"
 NPZ = "0.4"
 OffsetArrays = "1"
-Polynomials4ML = "0.0.4"
+Polynomials4ML = "0.0.4, 0.0.5"
 PyCall = "1"
 Reexport = "1"
 StaticArrays = "1"
