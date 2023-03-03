@@ -90,6 +90,7 @@ ConstEmbedding(TIN, TOUT, transform, B, maxlen) =
          transform, B, maxlen, Dict{String, Any}()
       )
 
+
 Base.length(l::ConstEmbedding) = length(l.B)
 
 function (l::ConstEmbedding)(X, ps, st) 
